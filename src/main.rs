@@ -19,7 +19,9 @@ enum Twist {
 fn cons(mut exprs: Vec<Twist>) -> Twist {
     match &mut exprs.as_mut_slice() {
         [Expr(ref mut head), tail @ ..] => {
-            //println!("flattening {:?} {:?}", head, tail);
+            // could add K check here (if len(head) == 2 we always return head[1])
+            // to fix order problem?
+            println!("flattening {:?} {:?}", head, tail);
             let mut l = Rc::make_mut(head).clone();
             l.extend_from_slice(tail);
             //println!("-> {:?}", l);
@@ -44,7 +46,10 @@ impl Twist {
     fn reduce(&self) -> Option<Self> {
         if let Expr(exprs) = self {
             let o: Option<Self> = match &exprs.as_slice() {
-                [N(K), x, y, ..] => Some(x.clone()),
+                // i think this K rule is slightly incorrect:
+                // we're flattening combinators trees and matching left-to-right
+                // to follow rule 2&3, but that means we aren't applying K right-to-left!
+                [N(K), x, _y, ..] => Some(x.clone()),
                 [N(S), x, y, z @ ..] => {
                     let mut s = vec![];
                     let mut xz = vec![x.clone()];
@@ -84,7 +89,7 @@ impl Twist {
                         N(S) => Some(s.clone()),
                         N(K) => Some(k.clone()),
                         N(E) => Some(e.clone()),
-                        N(W) => Some(e.clone()),
+                        N(W) => Some(w.clone()),
                     }
                 },
                 [x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
@@ -100,8 +105,7 @@ impl Twist {
                     //xy.extend_from_slice(z);
                     Some(cons(xy))
                 },
-
-                x @ _ => None,
+                _ => None,
             };
             //if let Some(x) = o.clone() {
             //    println!("reducing {:?}", self);
@@ -119,15 +123,15 @@ impl fmt::Debug for Twist {
         match self {
             N(c) => c.fmt(f),
             Expr(expr) => {
-                write!(f, "(");
+                write!(f, "(")?;
                 let mut first = true;
                 for e in expr.iter() {
                     if first {
                         first = false;
                     } else {
-                        write!(f, " ");
+                        write!(f, " ")?;
                     }
-                    std::fmt::Debug::fmt(e, f);
+                    std::fmt::Debug::fmt(e, f)?;
                 }
                 write!(f, ")")
             }
@@ -137,6 +141,7 @@ impl fmt::Debug for Twist {
 
 fn main() {
     println!("Hello, world!");
+    test::test_e();
 }
 
 mod test {
@@ -155,17 +160,18 @@ mod test {
     }
     #[test]
     fn test_s() {
-        let mut t1 = cons(vec![N(S), N(K), cons(vec![N(S), N(K)]), cons(vec![N(S), N(K), N(K)])]).reduce().unwrap();
+        let t1 = cons(vec![N(S), N(K), cons(vec![N(S), N(K)]), cons(vec![N(S), N(K), N(K)])]).reduce().unwrap();
         assert_eq!(t1, cons(vec![N(K), cons(vec![N(S), N(K), N(K)]), cons(vec![N(S), N(K), cons(vec![N(S), N(K), N(K)])])]));
         let t2 = t1.reduce().unwrap();
         assert_eq!(t2, cons(vec![N(S), N(K), N(K)]));
     }
     #[test]
-    fn test_e() {
+    pub fn test_e() {
         let mut t = cons(vec![N(E), N(E), N(K), cons(vec![N(S), N(K)]), cons(vec![N(K), N(K), cons(vec![N(K), N(K)])]), cons(vec![N(S), N(K), N(K), N(K)])]);
         for i in 0..5 {
             println!("step {} {:?}", i, t);
             t = t.reduce().unwrap()
         }
+        assert_eq!(t, N(K));
     }
 }
