@@ -18,10 +18,9 @@ enum Twist {
 
 fn cons(mut exprs: Vec<Twist>) -> Twist {
     match &mut exprs.as_mut_slice() {
+        // flatten ((x y) z) -> (x y z)
         [Expr(ref mut head), tail @ ..] => {
-            // could add K check here (if len(head) == 2 we always return head[1])
-            // to fix order problem?
-            println!("flattening {:?} {:?}", head, tail);
+            //println!("flattening {:?} {:?}", head, tail);
             let mut l = Rc::make_mut(head).clone();
             l.extend_from_slice(tail);
             //println!("-> {:?}", l);
@@ -34,10 +33,7 @@ fn cons(mut exprs: Vec<Twist>) -> Twist {
 // skew is defined as left-associative: (x y z) is grouped as ((x y) z)
 // this is a problem for pattern matching because you have to chase for the combinator
 // tag multiple times, since it's not always at the top level.
-// we represent (a b (x y) z) as vec![x,y,z] and (x (y z)) as vec![x,vec![y,z]] instead.
-
-// ((a b) (c d)) -> (*(a b) (c d)) if you can then ((a b) *(c d)) if you can
-// vec![vec![a, b, ..], vec![c, d, ..]]
+// we represent ((x y) z) as vec![x,y,z] and (x (y z)) as vec![x,vec![y,z]] instead.
 
 use Skew::*;
 use Twist::*;
@@ -46,9 +42,11 @@ impl Twist {
     fn reduce(&self) -> Option<Self> {
         if let Expr(exprs) = self {
             let o: Option<Self> = match &exprs.as_slice() {
-                // i think this K rule is slightly incorrect:
+                // this K rule is slightly incorrect:
                 // we're flattening combinators trees and matching left-to-right
                 // to follow rule 2&3, but that means we aren't applying K right-to-left!
+                // we probably need a rule looking for any Expr(N(K), _, _) in the slice
+                // as well.
                 [N(K), x, _y, ..] => Some(x.clone()),
                 [N(S), x, y, z @ ..] => {
                     let mut s = vec![];
@@ -58,7 +56,6 @@ impl Twist {
                     let mut yz = vec![y.clone()];
                     yz.extend_from_slice(z.clone());
                     s.push(cons(yz));
-                    //xz.append(&mut yz);
                     Some(cons(s))
                 },
                 e @ [N(E), ..] => {
@@ -92,17 +89,15 @@ impl Twist {
                         N(W) => Some(w.clone()),
                     }
                 },
+                // I don't think we actually need these rules?
                 [x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
                     let mut xy: Vec<Twist> = vec![cons(x.into()).reduce().unwrap()];
                     xy.push(y.clone());
-                    //xy.extend_from_slice(y.clone());
-                    //xy.extend_from_slice(z);
                     Some(cons(xy))
                 },
                 [x @ .., y @ _] if y.reduce().is_some() => {
                     let mut xy: Vec<Twist> = x.into();
                     xy.push(y.reduce().unwrap());
-                    //xy.extend_from_slice(z);
                     Some(cons(xy))
                 },
                 _ => None,
@@ -140,7 +135,6 @@ impl fmt::Debug for Twist {
 }
 
 fn main() {
-    println!("Hello, world!");
     test::test_e();
 }
 
