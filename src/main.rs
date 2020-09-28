@@ -21,7 +21,7 @@ fn cons(mut exprs: Vec<Twist>) -> Twist {
         // flatten ((x y) z) -> (x y z)
         [Expr(ref mut head), tail @ ..] => {
             //println!("flattening {:?} {:?}", head, tail);
-            let mut l = Rc::make_mut(head).clone();
+            let l = Rc::make_mut(head);
             l.extend_from_slice(tail);
             //println!("-> {:?}", l);
             return Expr(Rc::new(l.to_vec()))
