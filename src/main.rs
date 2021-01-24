@@ -98,19 +98,7 @@ impl Twist {
     fn reduce(&self) -> Option<Self> {
         if let Expr(exprs) = self {
             let o: Option<Self> = match &exprs.as_slice() {
-                [N(K), x, _y @ ..] => Some(x.clone()),
-                //// these rules force reduction of E arguments first
-                //// it also ruins our cache coherency though :(
-                //[x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
-                //    let mut xy: Vec<Twist> = vec![cons(x.into()).reduce().unwrap()];
-                //    xy.push(y.clone());
-                //    Some(cons(xy))
-                //},
-                //[x @ .., y @ _] if y.reduce().is_some() => {
-                //    let mut xy: Vec<Twist> = x.into();
-                //    xy.push(y.reduce().unwrap());
-                //    Some(cons(xy))
-                //},
+                [N(K), x, _y, z @ ..] => Some(x.clone()),
                 [N(S), x, y, z] => {
                     let mut s = vec![];
                     let mut xz = vec![x.clone(), z.clone()];
@@ -171,6 +159,18 @@ impl Twist {
                 //        N(W) => Some(w.clone()),
                 //        J(j) => unimplemented!(),
                 //    }
+                //},
+                //// these rules force reduction of E arguments first
+                //// it also ruins our cache coherency though :(
+                [x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
+                    let mut xy: Vec<Twist> = vec![cons(x.into()).reduce().unwrap()];
+                    xy.push(y.clone());
+                    Some(cons(xy))
+                },
+                //[x @ .., y @ _] if y.reduce().is_some() => {
+                //    let mut xy: Vec<Twist> = x.into();
+                //    xy.push(y.reduce().unwrap());
+                //    Some(cons(xy))
                 //},
 
                 _ => None,

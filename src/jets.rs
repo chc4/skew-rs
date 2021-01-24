@@ -52,6 +52,12 @@ fn call<T: Jetted + 'static>(j: T, mut args: Vec<Twist>) -> Twist {
     x.append(&mut args);
     cons(x)
 }
+fn delay(t: Twist) -> Twist {
+    cons(vec![N(K), t, N(K)])
+}
+fn defer(t: Twist) -> Twist {
+    cons(vec![N(K), t])
+}
 
 #[test]
 fn test_add() {
@@ -62,16 +68,23 @@ fn test_add() {
 }
 #[test]
 fn test_add_argument_eval() {
-    fn defer(t: Twist) -> Twist {
-        cons(vec![N(K), t, N(K)])
-    }
-    let lazy_1 = defer(defer(Twist::atom(1)));
+    let lazy_1 = delay(delay(Twist::atom(1)));
     let t1 = cons(vec![N(E), Twist::atom(2), N(K), J(Jet(Box::new(Add))), lazy_1, Twist::atom(2)]).reduce().unwrap();
     assert_eq!(t1, Twist::atom(3));
 }
 
 #[test]
-fn test_if() {
+fn test_if_true() {
     let t1 = call(If, vec![Twist::atom(0), Twist::atom(1), Twist::atom(2)]);
     assert_eq!(t1.reduce().unwrap(), Twist::atom(1));
+}
+#[test]
+fn test_if_false() {
+    let t1 = call(If, vec![Twist::atom(1), Twist::atom(1), Twist::atom(2)]);
+    assert_eq!(t1.reduce().unwrap(), Twist::atom(2));
+}
+#[test]
+fn test_if_lazy() {
+    let t1 = cons(vec![call(If, vec![Twist::atom(0), defer(Twist::atom(1)), defer(Twist::atom(2))]), N(K)]);
+    assert_eq!(t1.reduce().unwrap(), delay(Twist::atom(1)));
 }
