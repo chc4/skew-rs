@@ -85,6 +85,6 @@ fn test_if_false() {
 }
 #[test]
 fn test_if_lazy() {
-    let t1 = cons(vec![call(If, vec![Twist::atom(0), defer(Twist::atom(1)), defer(Twist::atom(2))]), N(K)]);
-    assert_eq!(t1.reduce().unwrap(), delay(Twist::atom(1)));
+    let t1 = call(If, vec![Twist::atom(0), defer(Twist::atom(1)), defer(Twist::atom(2)), N(K)]).reduce().unwrap();
+    assert_eq!(t1, delay(Twist::atom(1)));
 }

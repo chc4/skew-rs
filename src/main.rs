@@ -99,45 +99,57 @@ impl Twist {
         if let Expr(exprs) = self {
             let o: Option<Self> = match &exprs.as_slice() {
                 [N(K), x, _y, z @ ..] => Some(x.clone()),
-                [N(S), x, y, z] => {
+                [N(S), x, y, z, w @ ..] => {
                     let mut s = vec![];
                     let mut xz = vec![x.clone(), z.clone()];
                     s.append(&mut xz);
                     let yz = vec![y.clone(), z.clone()];
                     s.push(cons(yz));
-                    //s.extend_from_slice(w);
+                    if(w.len() != 0){
+                        s.extend_from_slice(w);
+                    }
                     Some(cons(s))
                 },
                 // I think this is wrong, since something like ((curry |=([a=@ b=@] a+b) 1) 2)
                 // might need a `rest`?
-                [N(E), N(A(n)), _t, f, x @ ..] if Int::from(x.len()) == *n => {
+                [N(E), N(A(n)), _t, f, x @ ..] if Int::from(x.len()) >= *n => {
                     let mut arity = n;
                     let mut jetted = None;
                     println!("jet arity {}", arity);
-                    let mut eval_x: Vec<Twist> = x.clone().iter().map(|i| {
-                        let mut curr = i.clone();
-                        loop {
-                            if let Some(r) = curr.reduce() {
-                                curr = r;
+                    let s: usize = n.into();
+                    let new_x = &mut x.to_owned();
+                    // this leads to unnecessary allocations i think
+                    for item in new_x[..s].iter_mut() {
+                        'a: loop {
+                            if let Some(r) = item.reduce() {
+                                *item = r;
                             } else {
-                                break curr;
+                                break 'a;
                             }
-                        }}).collect();
+                        }
+                    }
                     if let J(jet) = f {
                         if jet.0.arity() == *arity {
-                            jetted = jet.0.call(&eval_x);
+                            jetted = jet.0.call(&new_x[..s])
                         } else {
                             println!("jet arity doesnt match");
                         }
                     }
-                    // we didn't have a Jet as a function, but still have a hint
-                    // search for it in the jet registry?
-                    if jetted.is_none() {
-                        let mut unjetted = vec![f.clone()];
-                        unjetted.append(&mut eval_x);
-                        return Some(cons(unjetted));
+                    if let Some(jet_val) = jetted {
+                        if(new_x.len() > s){
+                            println!("function call with too many arguments");
+                            let mut many = vec![jet_val];
+                            many.extend_from_slice(&new_x[s..]);
+                            return Some(cons(many));
+                        } else {
+                            return Some(jet_val);
+                        }
                     } else {
-                        return jetted;
+                        // we didn't have a Jet as a function, but still have a hint
+                        // search for it in the jet registry?
+                        let mut unjetted = vec![f.clone()];
+                        unjetted.extend_from_slice(new_x);
+                        return Some(cons(unjetted));
                     }
                 },
                 [N(A(n)), f, x @ ..] => {
@@ -162,11 +174,11 @@ impl Twist {
                 //},
                 //// these rules force reduction of E arguments first
                 //// it also ruins our cache coherency though :(
-                [x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
-                    let mut xy: Vec<Twist> = vec![cons(x.into()).reduce().unwrap()];
-                    xy.push(y.clone());
-                    Some(cons(xy))
-                },
+                //[x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
+                //    let mut xy: Vec<Twist> = vec![cons(x.into()).reduce().unwrap()];
+                //    xy.push(y.clone());
+                //    Some(cons(xy))
+                //},
                 //[x @ .., y @ _] if y.reduce().is_some() => {
                 //    let mut xy: Vec<Twist> = x.into();
                 //    xy.push(y.reduce().unwrap());
