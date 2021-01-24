@@ -10,6 +10,7 @@ use dyn_clone::DynClone;
 
 use Skew::*;
 use Twist::*;
+mod jets;
 
 #[derive(Clone, PartialEq, Debug)]
 enum Skew {
@@ -51,24 +52,6 @@ impl PartialEq for dyn Jetted {
         // i dont think we can actually use the derive partialeq, since
         // we *do* want jet == skew to be true if jet.normal() == skew
         false
-    }
-}
-
-#[derive(Clone, PartialEq)]
-struct Add;
-impl Jetted for Add {
-    fn arity(&self) -> Int {
-        2.into()
-    }
-    fn call(&self, args: &[Twist]) -> Option<Twist> {
-        if let [N(A(n)), N(A(m))] = args {
-            return Some(N(A(n + m)));
-        } else {
-            return None;
-        }
-    }
-    fn name(&self) -> String {
-        "Add".into()
     }
 }
 
@@ -146,7 +129,6 @@ impl Twist {
                     let mut eval_x: Vec<Twist> = x.clone().iter().map(|i| {
                         let mut curr = i.clone();
                         loop {
-                            println!("curr ");
                             if let Some(r) = curr.reduce() {
                                 curr = r;
                             } else {
@@ -271,26 +253,6 @@ mod test {
     pub fn test_e() {
         crate::main()
     }
-
-    #[test]
-    fn test_add() {
-        use crate::Add;
-        let t1 = cons(vec![N(E), Twist::atom(2), N(K), J(Jet(Box::new(Add))), Twist::atom(1), Twist::atom(2)]).reduce().unwrap();
-        assert_eq!(t1, Twist::atom(3));
-    }
-
-    #[test]
-    fn test_add_argument_eval() {
-        use crate::Add;
-        fn defer(t: Twist) -> Twist {
-            cons(vec![N(K), t, N(K)])
-        }
-        let lazy_1 = defer(defer(Twist::atom(1)));
-        let t1 = cons(vec![N(E), Twist::atom(2), N(K), J(Jet(Box::new(Add))), lazy_1, Twist::atom(2)]).reduce().unwrap();
-        assert_eq!(t1, Twist::atom(3));
-
-    }
-
     #[test]
     fn test_increment() {
         let t1 = cons(vec![Twist::atom(1), N(K), N(K)]).reduce().unwrap().reduce().unwrap();
