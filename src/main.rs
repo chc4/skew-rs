@@ -3,17 +3,80 @@ use std::rc::Rc;
 use std::fmt;
 use std::fmt::Debug;
 
+extern crate ramp;
+extern crate dyn_clone;
+use ramp::Int;
+use dyn_clone::DynClone;
+
+use Skew::*;
+use Twist::*;
+
 #[derive(Clone, PartialEq, Debug)]
 enum Skew {
     S,
     K,
     E,
-    W
+    W,
+    A(Int),
+    // Lazy(Box<dyn Stand>) that we decompose into a concrete Skew?
+    // how do we do this efficiently in the Skew::reduce function -
+    // since we're always matching the header we just expand a Lazy
+    // if we have one, and then expand them if we need conditional matching
+    // for e.g. the Jet arity, but not hint?
+    // (this is so we can have a jet return a native HashMap that can be used with
+    // skew and a native get/set jet on the HashMap, with lazy reduction down to
+    // actual skew if needed)
 }
+
+trait Jetted: DynClone {
+    fn arity(&self) -> Int;
+    fn call(&self, args: &[Twist]) -> Option<Twist>;
+    fn name(&self) -> String;
+}
+dyn_clone::clone_trait_object!(Jetted);
+
+// workaround for #39128
+#[derive(Clone)]
+struct Jet(Box<dyn Jetted>);
+impl PartialEq for Jet {
+    fn eq(&self, other: &Self) -> bool {
+        //Jet::eq(self.as_ref(), other)
+        <Box<dyn Jetted> as PartialEq>::eq(&self.0, &other.0)
+    }
+}
+
+impl PartialEq for dyn Jetted {
+    fn eq(&self, other: &Self) -> bool {
+        // XXX: add Any downcasting impl?
+        // i dont think we can actually use the derive partialeq, since
+        // we *do* want jet == skew to be true if jet.normal() == skew
+        false
+    }
+}
+
+#[derive(Clone, PartialEq)]
+struct Add;
+impl Jetted for Add {
+    fn arity(&self) -> Int {
+        2.into()
+    }
+    fn call(&self, args: &[Twist]) -> Option<Twist> {
+        if let [N(A(n)), N(A(m))] = args {
+            return Some(N(A(n + m)));
+        } else {
+            return None;
+        }
+    }
+    fn name(&self) -> String {
+        "Add".into()
+    }
+}
+
 #[derive(Clone, PartialEq)]
 enum Twist {
     Expr(Rc<Vec<Twist>>),
     N(Skew),
+    J(Jet)
 }
 
 fn cons(mut exprs: Vec<Twist>) -> Twist {
@@ -35,10 +98,11 @@ fn cons(mut exprs: Vec<Twist>) -> Twist {
 // tag multiple times, since it's not always at the top level.
 // we represent ((x y) z) as vec![x,y,z] and (x (y z)) as vec![x,vec![y,z]] instead.
 
-use Skew::*;
-use Twist::*;
 
 impl Twist {
+    fn atom(n: usize) -> Self {
+        N(A(Int::from(n)))
+    }
     fn reduce(&self) -> Option<Self> {
         if let Expr(exprs) = self {
             let o: Option<Self> = match &exprs.as_slice() {
@@ -47,59 +111,65 @@ impl Twist {
                 // to follow rule 2&3, but that means we aren't applying K right-to-left!
                 // we probably need a rule looking for any Expr(N(K), _, _) in the slice
                 // as well.
-                [N(K), x, _y, ..] => Some(x.clone()),
+                [N(K), x, _y @ ..] => Some(x.clone()),
+                // these rules force reduction of E arguments first
+                //[x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
+                //    let mut xy: Vec<Twist> = vec![cons(x.into()).reduce().unwrap()];
+                //    xy.push(y.clone());
+                //    Some(cons(xy))
+                //},
+                //[x @ .., y @ _] if y.reduce().is_some() => {
+                //    let mut xy: Vec<Twist> = x.into();
+                //    xy.push(y.reduce().unwrap());
+                //    Some(cons(xy))
+                //},
                 [N(S), x, y, z @ ..] => {
                     let mut s = vec![];
                     let mut xz = vec![x.clone()];
                     xz.extend_from_slice(z.clone());
-                    s.push(cons(xz));
+                    s.append(&mut xz);
                     let mut yz = vec![y.clone()];
                     yz.extend_from_slice(z.clone());
                     s.push(cons(yz));
                     Some(cons(s))
                 },
-                e @ [N(E), ..] => {
-                    let mut arity = 0;
-                    for expr in e.iter() {
-                        if let N(E) = expr {
-                            arity = arity + 1;
+                [N(E), N(A(n)), t, f, x @ ..] if Int::from(x.len()) == *n => {
+                    let mut arity = n;
+                    let mut jetted = None;
+                    println!("jet arity {}", arity);
+                    if let J(jet) = f {
+                        if jet.0.arity() == *arity {
+                            jetted = jet.0.call(x);
                         } else {
-                            break;
+                            println!("jet arity doesnt match");
                         }
                     }
-                    println!("jet arity {}", arity);
-                    let o: Vec<Twist> = e.iter().skip(arity + 1).map(|x| x.clone()).collect();
-                    // just ignore arity for now?
-                    if(o.len() != arity + 1) {
-                        return None
-                    }
-                    //assert_eq!(o.len(), arity);
-                    Some(cons(o))
-                },
-                [N(W), a, s, k , e , w, op @ _] => {
-                    match op {
-                        xy @ Expr(_) => {
-                            let mut e: Vec<Twist> = vec![a.clone()];
-                            e.push(xy.clone());
-                            Some(cons(e))
-                        },
-                        N(S) => Some(s.clone()),
-                        N(K) => Some(k.clone()),
-                        N(E) => Some(e.clone()),
-                        N(W) => Some(w.clone()),
+                    // we didn't have a Jet as a function, but still have a hint
+                    // search for it in the jet registry?
+                    if jetted.is_none() {
+                        let mut unjetted = vec![f.clone()];
+                        unjetted.extend_from_slice(x.clone());
+                        return Some(cons(unjetted));
+                    } else {
+                        return jetted;
                     }
                 },
-                // I don't think we actually need these rules?
-                [x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
-                    let mut xy: Vec<Twist> = vec![cons(x.into()).reduce().unwrap()];
-                    xy.push(y.clone());
-                    Some(cons(xy))
-                },
-                [x @ .., y @ _] if y.reduce().is_some() => {
-                    let mut xy: Vec<Twist> = x.into();
-                    xy.push(y.reduce().unwrap());
-                    Some(cons(xy))
-                },
+                //[N(W), a, s, k, e, w, op @ _] => {
+                //    match op {
+                //        xy @ Expr(_) => {
+                //            let mut e: Vec<Twist> = vec![a.clone()];
+                //            e.push(xy.clone());
+                //            Some(cons(e))
+                //        },
+
+                //        N(S) => Some(s.clone()),
+                //        N(K) => Some(k.clone()),
+                //        N(E) => Some(e.clone()),
+                //        N(W) => Some(w.clone()),
+                //        J(j) => unimplemented!(),
+                //    }
+                //},
+
                 _ => None,
             };
             //if let Some(x) = o.clone() {
@@ -129,13 +199,22 @@ impl fmt::Debug for Twist {
                     std::fmt::Debug::fmt(e, f)?;
                 }
                 write!(f, ")")
+            },
+            J(j) => {
+                write!(f, "{}", j.0.name())
             }
         }
     }
 }
 
 fn main() {
-    test::test_e();
+    let mut t = cons(vec![N(E), Twist::atom(2), N(K), cons(vec![N(S), N(K)]), cons(vec![N(K), N(K), cons(vec![N(K), N(K)])]), cons(vec![N(S), N(K), N(K), N(K)])]);
+    for i in 0..5 {
+        println!("step {} {:?}", i, t);
+        t = t.reduce().unwrap()
+    }
+    println!("final {:?}", t);
+    assert_eq!(t, N(K));
 }
 
 mod test {
@@ -161,11 +240,6 @@ mod test {
     }
     #[test]
     pub fn test_e() {
-        let mut t = cons(vec![N(E), N(E), N(K), cons(vec![N(S), N(K)]), cons(vec![N(K), N(K), cons(vec![N(K), N(K)])]), cons(vec![N(S), N(K), N(K), N(K)])]);
-        for i in 0..5 {
-            println!("step {} {:?}", i, t);
-            t = t.reduce().unwrap()
-        }
-        assert_eq!(t, N(K));
+        crate::main()
     }
 }
