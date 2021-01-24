@@ -137,6 +137,8 @@ impl Twist {
                     //s.extend_from_slice(w);
                     Some(cons(s))
                 },
+                // I think this is wrong, since something like ((curry |=([a=@ b=@] a+b) 1) 2)
+                // might need a `rest`?
                 [N(E), N(A(n)), _t, f, x @ ..] if Int::from(x.len()) == *n => {
                     let mut arity = n;
                     let mut jetted = None;
@@ -167,6 +169,11 @@ impl Twist {
                     } else {
                         return jetted;
                     }
+                },
+                [N(A(n)), f, x @ ..] => {
+                    let mut r = vec![f.clone(), N(A(n+1))];
+                    r.extend_from_slice(x.clone());
+                    Some(cons(r))
                 },
                 //[N(W), a, s, k, e, w, op @ _] => {
                 //    match op {
@@ -282,5 +289,11 @@ mod test {
         let t1 = cons(vec![N(E), Twist::atom(2), N(K), J(Jet(Box::new(Add))), lazy_1, Twist::atom(2)]).reduce().unwrap();
         assert_eq!(t1, Twist::atom(3));
 
+    }
+
+    #[test]
+    fn test_increment() {
+        let t1 = cons(vec![Twist::atom(1), N(K), N(K)]).reduce().unwrap().reduce().unwrap();
+        assert_eq!(t1, Twist::atom(2));
     }
 }
