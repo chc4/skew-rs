@@ -85,11 +85,19 @@ fn cons(mut exprs: Vec<Twist>) -> Twist {
 // have exprs been a stack, and apply reductions at the *tail* so that
 // we can do [... z y x S] -> [... (z y) (z x)] reductions in-place with make_mut
 //
-// we should also be using a stack vm for this, so that S can be a state machine of
-// S_0, S_1, S_2 for the (x z) and (y z) reduction, and E argument reduction
+// we should also be using a stack vm for this, for E argument reduction
 // without blowing the call stack.
 // currently "evaluate arguments" for E means you have to call reduce() in a loop
 // until it returns None, which means its recursive and will build deep call stacks.
+//
+// problem: "evaluating" is defined as running until fixpoint.
+// this means that "data structures" are evaluated - (get my_map 'key) would need
+// my_map in a way that doesn't reduce.
+// we could just have it as `E A(1) K (map data)` with no arguments?
+// then all get's impl has to match on `E A(1) _ J(Jet(map))` instead, but we keep
+// semantics.
+// can we just use (K map) instead? does that ruin codegen? idk how SKI compilers
+// work.
 
 impl Twist {
     fn atom(n: usize) -> Self {
@@ -110,8 +118,6 @@ impl Twist {
                     }
                     Some(cons(s))
                 },
-                // I think this is wrong, since something like ((curry |=([a=@ b=@] a+b) 1) 2)
-                // might need a `rest`?
                 [N(E), N(A(n)), _t, f, x @ ..] if Int::from(x.len()) >= *n => {
                     let mut arity = n;
                     let mut jetted = None;
@@ -157,21 +163,10 @@ impl Twist {
                     r.extend_from_slice(x.clone());
                     Some(cons(r))
                 },
-                //[N(W), a, s, k, e, w, op @ _] => {
-                //    match op {
-                //        xy @ Expr(_) => {
-                //            let mut e: Vec<Twist> = vec![a.clone()];
-                //            e.push(xy.clone());
-                //            Some(cons(e))
-                //        },
-
-                //        N(S) => Some(s.clone()),
-                //        N(K) => Some(k.clone()),
-                //        N(E) => Some(e.clone()),
-                //        N(W) => Some(w.clone()),
-                //        J(j) => unimplemented!(),
-                //    }
-                //},
+                [N(W), N(A(n)), x @ ..] if x.len() >= *n => {
+                    let s: usize = n.into();
+                    Some(x[s].clone())
+                },
                 //// these rules force reduction of E arguments first
                 //// it also ruins our cache coherency though :(
                 //[x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
