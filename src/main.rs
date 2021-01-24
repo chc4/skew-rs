@@ -113,24 +113,24 @@ impl Twist {
                 // as well.
                 [N(K), x, _y @ ..] => Some(x.clone()),
                 // these rules force reduction of E arguments first
-                //[x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
-                //    let mut xy: Vec<Twist> = vec![cons(x.into()).reduce().unwrap()];
-                //    xy.push(y.clone());
-                //    Some(cons(xy))
-                //},
-                //[x @ .., y @ _] if y.reduce().is_some() => {
-                //    let mut xy: Vec<Twist> = x.into();
-                //    xy.push(y.reduce().unwrap());
-                //    Some(cons(xy))
-                //},
-                [N(S), x, y, z @ ..] => {
+                [x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
+                    let mut xy: Vec<Twist> = vec![cons(x.into()).reduce().unwrap()];
+                    xy.push(y.clone());
+                    Some(cons(xy))
+                },
+                [x @ .., y @ _] if y.reduce().is_some() => {
+                    let mut xy: Vec<Twist> = x.into();
+                    xy.push(y.reduce().unwrap());
+                    Some(cons(xy))
+                },
+                [N(S), x, y, z] => {
                     let mut s = vec![];
-                    let mut xz = vec![x.clone()];
-                    xz.extend_from_slice(z.clone());
+                    let mut xz = vec![x.clone(), z.clone()];
                     s.append(&mut xz);
-                    let mut yz = vec![y.clone()];
-                    yz.extend_from_slice(z.clone());
+                    let mut yz = vec![y.clone(), z.clone()];
                     s.push(cons(yz));
+                    //s.extend_from_slice(w);
+                    println!("S result {:?}", s);
                     Some(cons(s))
                 },
                 [N(E), N(A(n)), t, f, x @ ..] if Int::from(x.len()) == *n => {
@@ -209,7 +209,7 @@ impl fmt::Debug for Twist {
 
 fn main() {
     let mut t = cons(vec![N(E), Twist::atom(2), N(K), cons(vec![N(S), N(K)]), cons(vec![N(K), N(K), cons(vec![N(K), N(K)])]), cons(vec![N(S), N(K), N(K), N(K)])]);
-    for i in 0..5 {
+    for i in 0..6 {
         println!("step {} {:?}", i, t);
         t = t.reduce().unwrap()
     }
@@ -237,6 +237,12 @@ mod test {
         assert_eq!(t1, cons(vec![N(K), cons(vec![N(S), N(K), N(K)]), cons(vec![N(S), N(K), cons(vec![N(S), N(K), N(K)])])]));
         let t2 = t1.reduce().unwrap();
         assert_eq!(t2, cons(vec![N(S), N(K), N(K)]));
+    }
+
+    #[test]
+    fn test_s2() {
+        let t1 = cons(vec![N(S), N(K), N(K), N(K)]).reduce().unwrap();
+        assert_eq!(t1, cons(vec![N(K), N(K), cons(vec![N(K), N(K)])]));
     }
     #[test]
     pub fn test_e() {
