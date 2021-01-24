@@ -115,11 +115,6 @@ impl Twist {
     fn reduce(&self) -> Option<Self> {
         if let Expr(exprs) = self {
             let o: Option<Self> = match &exprs.as_slice() {
-                // this K rule is slightly incorrect:
-                // we're flattening combinators trees and matching left-to-right
-                // to follow rule 2&3, but that means we aren't applying K right-to-left!
-                // we probably need a rule looking for any Expr(N(K), _, _) in the slice
-                // as well.
                 [N(K), x, _y @ ..] => Some(x.clone()),
                 //// these rules force reduction of E arguments first
                 //// it also ruins our cache coherency though :(
@@ -275,5 +270,17 @@ mod test {
         use crate::Add;
         let t1 = cons(vec![N(E), Twist::atom(2), N(K), J(Jet(Box::new(Add))), Twist::atom(1), Twist::atom(2)]).reduce().unwrap();
         assert_eq!(t1, Twist::atom(3));
+    }
+
+    #[test]
+    fn test_add_argument_eval() {
+        use crate::Add;
+        fn defer(t: Twist) -> Twist {
+            cons(vec![N(K), t, N(K)])
+        }
+        let lazy_1 = defer(defer(Twist::atom(1)));
+        let t1 = cons(vec![N(E), Twist::atom(2), N(K), J(Jet(Box::new(Add))), lazy_1, Twist::atom(2)]).reduce().unwrap();
+        assert_eq!(t1, Twist::atom(3));
+
     }
 }
