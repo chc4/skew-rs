@@ -2,6 +2,7 @@
 use std::rc::Rc;
 use std::fmt;
 use std::fmt::Debug;
+use std::mem;
 
 extern crate ramp;
 extern crate dyn_clone;
@@ -37,6 +38,8 @@ trait Jetted: DynClone {
 dyn_clone::clone_trait_object!(Jetted);
 
 // workaround for #39128
+// this should probably be a (Box<dyn Jetter>, TypeId) so that
+// jets can match on it for arguments.
 #[derive(Clone)]
 struct Jet(Box<dyn Jetted>);
 impl PartialEq for Jet {
@@ -62,6 +65,7 @@ enum Twist {
     J(Jet)
 }
 
+#[inline]
 fn cons(mut exprs: Vec<Twist>) -> Twist {
     match &mut exprs.as_mut_slice() {
         // flatten ((x y) z) -> (x y z)
@@ -100,9 +104,24 @@ fn cons(mut exprs: Vec<Twist>) -> Twist {
 // work.
 
 impl Twist {
+    /// Generate a new atom from a number
     fn atom(n: usize) -> Self {
         N(A(Int::from(n)))
     }
+    /// Reduce until there's nothing left
+    fn boil(&mut self) {
+        let mut curr = N(K);
+        mem::swap(&mut curr, self);
+        loop {
+            if let Some(next) = curr.reduce() {
+                curr = next;
+            } else {
+                mem::swap(self, &mut curr);
+                break;
+            }
+        }
+    }
+    /// Reduce a Twist one step
     fn reduce(&self) -> Option<Self> {
         if let Expr(exprs) = self {
             let o: Option<Self> = match &exprs.as_slice() {
@@ -126,17 +145,12 @@ impl Twist {
                     let new_x = &mut x.to_owned();
                     // this leads to unnecessary allocations i think
                     for item in new_x[..s].iter_mut() {
-                        'a: loop {
-                            if let Some(r) = item.reduce() {
-                                *item = r;
-                            } else {
-                                break 'a;
-                            }
-                        }
+                        item.boil();
                     }
+                    println!("after reduction {:?}", new_x);
                     if let J(jet) = f {
                         if jet.0.arity() == *arity {
-                            jetted = jet.0.call(&new_x[..s])
+                            jetted = jet.0.call(&mut new_x[..s])
                         } else {
                             println!("jet arity doesnt match");
                         }
@@ -145,7 +159,7 @@ impl Twist {
                         if(new_x.len() > s){
                             println!("function call with too many arguments");
                             let mut many = vec![jet_val];
-                            many.extend_from_slice(&new_x[s..]);
+                            many.extend_from_slice(&mut new_x[s..]);
                             return Some(cons(many));
                         } else {
                             return Some(jet_val);
@@ -264,5 +278,13 @@ mod test {
     fn test_increment() {
         let t1 = cons(vec![Twist::atom(1), N(K), N(K)]).reduce().unwrap().reduce().unwrap();
         assert_eq!(t1, Twist::atom(2));
+    }
+
+    #[test]
+    fn test_i() {
+        let i = cons(vec![N(S), N(K), N(K)]);
+        let mut apply_i = cons(vec![i.clone(), Twist::atom(1)]);
+        apply_i.boil();
+        assert_eq!(apply_i, Twist::atom(1));
     }
 }

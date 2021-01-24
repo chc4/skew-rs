@@ -51,6 +51,24 @@ fn test_add_argument_eval() {
 }
 
 #[derive(Clone, PartialEq)]
+struct Mul;
+impl Jetted for Mul {
+    fn arity(&self) -> Int {
+        2.into()
+    }
+    fn call(&self, args: &[Twist]) -> Option<Twist> {
+        if let [N(A(n)), N(A(m))] = args {
+            return Some(N(A(n * m)));
+        } else {
+            return None;
+        }
+    }
+    fn name(&self) -> String {
+        "Mul".into()
+    }
+}
+
+#[derive(Clone, PartialEq)]
 struct If;
 impl Jetted for If {
     fn arity(&self) -> Int {
