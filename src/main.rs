@@ -98,6 +98,15 @@ fn cons(mut exprs: Vec<Twist>) -> Twist {
 // tag multiple times, since it's not always at the top level.
 // we represent ((x y) z) as vec![x,y,z] and (x (y z)) as vec![x,vec![y,z]] instead.
 
+// how to make this faster:
+// have exprs been a stack, and apply reductions at the *tail* so that
+// we can do [... z y x S] -> [... (z y) (z x)] reductions in-place with make_mut
+//
+// we should also be using a stack vm for this, so that S can be a state machine of
+// S_0, S_1, S_2 for the (x z) and (y z) reduction, and E argument reduction
+// without blowing the call stack.
+// currently "evaluate arguments" for E means you have to call reduce() in a loop
+// until it returns None, which means its recursive and will build deep call stacks.
 
 impl Twist {
     fn atom(n: usize) -> Self {
@@ -112,34 +121,44 @@ impl Twist {
                 // we probably need a rule looking for any Expr(N(K), _, _) in the slice
                 // as well.
                 [N(K), x, _y @ ..] => Some(x.clone()),
-                // these rules force reduction of E arguments first
-                [x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
-                    let mut xy: Vec<Twist> = vec![cons(x.into()).reduce().unwrap()];
-                    xy.push(y.clone());
-                    Some(cons(xy))
-                },
-                [x @ .., y @ _] if y.reduce().is_some() => {
-                    let mut xy: Vec<Twist> = x.into();
-                    xy.push(y.reduce().unwrap());
-                    Some(cons(xy))
-                },
+                //// these rules force reduction of E arguments first
+                //// it also ruins our cache coherency though :(
+                //[x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
+                //    let mut xy: Vec<Twist> = vec![cons(x.into()).reduce().unwrap()];
+                //    xy.push(y.clone());
+                //    Some(cons(xy))
+                //},
+                //[x @ .., y @ _] if y.reduce().is_some() => {
+                //    let mut xy: Vec<Twist> = x.into();
+                //    xy.push(y.reduce().unwrap());
+                //    Some(cons(xy))
+                //},
                 [N(S), x, y, z] => {
                     let mut s = vec![];
                     let mut xz = vec![x.clone(), z.clone()];
                     s.append(&mut xz);
-                    let mut yz = vec![y.clone(), z.clone()];
+                    let yz = vec![y.clone(), z.clone()];
                     s.push(cons(yz));
                     //s.extend_from_slice(w);
-                    println!("S result {:?}", s);
                     Some(cons(s))
                 },
-                [N(E), N(A(n)), t, f, x @ ..] if Int::from(x.len()) == *n => {
+                [N(E), N(A(n)), _t, f, x @ ..] if Int::from(x.len()) == *n => {
                     let mut arity = n;
                     let mut jetted = None;
                     println!("jet arity {}", arity);
+                    let mut eval_x: Vec<Twist> = x.clone().iter().map(|i| {
+                        let mut curr = i.clone();
+                        loop {
+                            println!("curr ");
+                            if let Some(r) = curr.reduce() {
+                                curr = r;
+                            } else {
+                                break curr;
+                            }
+                        }}).collect();
                     if let J(jet) = f {
                         if jet.0.arity() == *arity {
-                            jetted = jet.0.call(x);
+                            jetted = jet.0.call(&eval_x);
                         } else {
                             println!("jet arity doesnt match");
                         }
@@ -148,7 +167,7 @@ impl Twist {
                     // search for it in the jet registry?
                     if jetted.is_none() {
                         let mut unjetted = vec![f.clone()];
-                        unjetted.extend_from_slice(x.clone());
+                        unjetted.append(&mut eval_x);
                         return Some(cons(unjetted));
                     } else {
                         return jetted;
@@ -209,7 +228,7 @@ impl fmt::Debug for Twist {
 
 fn main() {
     let mut t = cons(vec![N(E), Twist::atom(2), N(K), cons(vec![N(S), N(K)]), cons(vec![N(K), N(K), cons(vec![N(K), N(K)])]), cons(vec![N(S), N(K), N(K), N(K)])]);
-    for i in 0..6 {
+    for i in 0..3 {
         println!("step {} {:?}", i, t);
         t = t.reduce().unwrap()
     }
@@ -220,6 +239,8 @@ fn main() {
 mod test {
     use crate::Skew::*;
     use crate::Twist::*;
+    use crate::Twist;
+    use crate::Jet;
     use crate::cons;
     #[test]
     fn test_k() {
@@ -247,5 +268,12 @@ mod test {
     #[test]
     pub fn test_e() {
         crate::main()
+    }
+
+    #[test]
+    fn test_add() {
+        use crate::Add;
+        let t1 = cons(vec![N(E), Twist::atom(2), N(K), J(Jet(Box::new(Add))), Twist::atom(1), Twist::atom(2)]).reduce().unwrap();
+        assert_eq!(t1, Twist::atom(3));
     }
 }
