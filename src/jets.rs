@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use ramp::Int;
 use Twist::*;
 use Twist;
@@ -8,7 +9,7 @@ use cons;
 
 fn call<T: Jetted + 'static>(j: T, mut args: Vec<Twist>) -> Twist {
     // just uses K for the jet hint for now
-    let mut x = vec![N(E), N(A(j.arity())), N(K), J(Jet(Box::new(j)))];
+    let mut x = vec![N(E), N(A(j.arity())), N(K), J(Jet(Rc::new(j)))];
     x.append(&mut args);
     cons(x)
 }
@@ -46,7 +47,7 @@ fn test_add() {
 #[test]
 fn test_add_argument_eval() {
     let lazy_1 = delay(delay(Twist::atom(1)));
-    let t1 = cons(vec![N(E), Twist::atom(2), N(K), J(Jet(Box::new(Add))), lazy_1, Twist::atom(2)]).reduce().unwrap();
+    let t1 = cons(vec![N(E), Twist::atom(2), N(K), J(Jet(Rc::new(Add))), lazy_1, Twist::atom(2)]).reduce().unwrap();
     assert_eq!(t1, Twist::atom(3));
 }
 

@@ -38,14 +38,14 @@ trait Jetted: DynClone {
 dyn_clone::clone_trait_object!(Jetted);
 
 // workaround for #39128
-// this should probably be a (Box<dyn Jetter>, TypeId) so that
+// this should probably be a (Rc<dyn Jetter>, TypeId) so that
 // jets can match on it for arguments.
 #[derive(Clone)]
-struct Jet(Box<dyn Jetted>);
+struct Jet(Rc<dyn Jetted>);
 impl PartialEq for Jet {
     fn eq(&self, other: &Self) -> bool {
         //Jet::eq(self.as_ref(), other)
-        <Box<dyn Jetted> as PartialEq>::eq(&self.0, &other.0)
+        <Rc<dyn Jetted> as PartialEq>::eq(&self.0, &other.0)
     }
 }
 
@@ -185,6 +185,7 @@ impl Twist {
                     r.extend_from_slice(x.clone());
                     Some(cons(r))
                 },
+                // this is wrong and it has to use extend_from_slice too lol
                 [N(W), N(A(n)), x @ ..] if x.len() >= *n => {
                     let s: usize = n.into();
                     Some(x[s].clone())
@@ -288,6 +289,8 @@ mod test {
         assert_eq!(t1, Twist::atom(2));
     }
 
+    // TODO: add I and Swap jets, fast-path them in reduce() pattern matching?
+    // maybe add C and B combiniator jets too
     #[test]
     fn test_i() {
         let i = cons(vec![N(S), N(K), N(K)]);
