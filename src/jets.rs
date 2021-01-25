@@ -6,6 +6,7 @@ use Skew::*;
 use Jetted;
 use Jet;
 use cons;
+use skew;
 
 fn call<T: Jetted + 'static>(j: T, mut args: Vec<Twist>) -> Twist {
     // just uses K for the jet hint for now

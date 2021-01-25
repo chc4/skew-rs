@@ -80,6 +80,22 @@ fn cons(mut exprs: Vec<Twist>) -> Twist {
     }
 }
 
+#[macro_export]
+macro_rules! skew {
+    (S) => { N(S) };
+    (K) => { N(K) };
+    ( ($( $x:tt ),+)) => {
+        {
+            let mut temp_vec: Vec<Twist> = Vec::new();
+            $(
+                temp_vec.push(skew!($x));
+            )+
+            cons(temp_vec)
+        }
+    };
+    ({$x:expr}) => { $x };
+}
+
 // skew is defined as left-associative: (x y z) is grouped as ((x y) z)
 // this is a problem for pattern matching because you have to chase for the combinator
 // tag multiple times, since it's not always at the top level.
@@ -122,6 +138,7 @@ impl Twist {
         }
     }
     /// Reduce a Twist one step
+    #[inline]
     fn reduce(&self) -> Option<Self> {
         if let Expr(exprs) = self {
             let o: Option<Self> = match &exprs.as_slice() {
@@ -203,6 +220,7 @@ impl Twist {
                 //    Some(cons(xy))
                 //},
 
+                // probably need a J(jet) => jet.deoptimize() rule here
                 _ => None,
             };
             //if let Some(x) = o.clone() {
@@ -258,17 +276,17 @@ mod test {
     use crate::cons;
     #[test]
     fn test_k() {
-        let t = cons(vec![N(K), N(K), N(K)]).reduce().unwrap();
+        let t = skew![(K, K, K)].reduce().unwrap();
         assert_eq!(t, N(K));
     }
     #[test]
     fn test_k_applies_first() {
-        let t = cons(vec![N(K), N(K), cons(vec![N(S), N(K), N(K)])]).reduce().unwrap();
+        let t = skew![(K, K, (S, K, K))].reduce().unwrap();
         assert_eq!(t, N(K));
     }
     #[test]
     fn test_s() {
-        let t1 = cons(vec![N(S), N(K), cons(vec![N(S), N(K)]), cons(vec![N(S), N(K), N(K)])]).reduce().unwrap();
+        let t1 = skew![(S, K, (S, K), (S, K, K))].reduce().unwrap();
         assert_eq!(t1, cons(vec![N(K), cons(vec![N(S), N(K), N(K)]), cons(vec![N(S), N(K), cons(vec![N(S), N(K), N(K)])])]));
         let t2 = t1.reduce().unwrap();
         assert_eq!(t2, cons(vec![N(S), N(K), N(K)]));
@@ -276,7 +294,7 @@ mod test {
 
     #[test]
     fn test_s2() {
-        let t1 = cons(vec![N(S), N(K), N(K), N(K)]).reduce().unwrap();
+        let t1 = skew![(S, K, K, K)].reduce().unwrap();
         assert_eq!(t1, cons(vec![N(K), N(K), cons(vec![N(K), N(K)])]));
     }
     #[test]
@@ -293,7 +311,7 @@ mod test {
     // maybe add C and B combiniator jets too
     #[test]
     fn test_i() {
-        let i = cons(vec![N(S), N(K), N(K)]);
+        let i = skew![(S,K,K)];
         let mut apply_i = cons(vec![i.clone(), Twist::atom(1)]);
         apply_i.boil();
         assert_eq!(apply_i, Twist::atom(1));
@@ -301,9 +319,9 @@ mod test {
 
     #[test]
     fn test_swap() {
-        let i = cons(vec![N(S), N(K), N(K)]);
-        let swap = cons(vec![N(S), cons(vec![N(K), cons(vec![N(S), i.clone()])]), N(K)]);
-        let mut apply_swap = cons(vec![swap.clone(), Twist::atom(1), N(K), N(K)]);
+        let i = skew![(S,K,K)];
+        let swap = skew![(S, (K, (S, {i.clone()})), K)];
+        let mut apply_swap = skew![({swap.clone()}, {Twist::atom(1)}, K, K)];
         for i in 0..6 {
             println!("before reduce {:?}", apply_swap);
             apply_swap = apply_swap.reduce().unwrap();
