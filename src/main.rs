@@ -342,7 +342,7 @@ mod test {
 
     #[test]
     fn test_pick() {
-        let t1 = skew![(W, {A 1}, ({A 1}, {A 1}, {A 2}))];
+        let t1 = skew![(W, {A 1}, ({A 0}, {A 1}, {A 2}))];
         assert_eq!(t1.reduce().unwrap(), Twist::atom(1));
     }
 }
