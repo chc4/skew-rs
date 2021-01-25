@@ -19,7 +19,7 @@ enum Skew {
     K,
     E,
     W,
-    A(Int),
+    A(Rc<Int>),
     // Lazy(Box<dyn Stand>) that we decompose into a concrete Skew?
     // how do we do this efficiently in the Skew::reduce function -
     // since we're always matching the header we just expand a Lazy
@@ -125,7 +125,7 @@ macro_rules! skew {
 impl Twist {
     /// Generate a new atom from a number
     fn atom(n: usize) -> Self {
-        N(A(Int::from(n)))
+        N(A(Rc::new(Int::from(n))))
     }
     /// Reduce until there's nothing left
     fn boil(&mut self) {
@@ -165,11 +165,11 @@ impl Twist {
                     }
                     Some(cons(s))
                 },
-                [N(E), N(A(n)), _t, f, x @ ..] if x.len() >= *n => {
+                [N(E), N(A(n)), _t, f, x @ ..] if x.len() >= **n => {
                     let mut arity = n;
                     let mut jetted = None;
                     println!("jet arity {}", arity);
-                    let s: usize = n.into();
+                    let s: usize = (&**n).into();
                     let new_x = &mut x.to_owned();
                     // this leads to unnecessary allocations i think
                     for item in new_x[..s].iter_mut() {
@@ -177,7 +177,7 @@ impl Twist {
                     }
                     println!("after reduction {:?}", new_x);
                     if let J(jet) = f {
-                        if jet.0.arity() == *arity {
+                        if jet.0.arity() == **arity {
                             jetted = jet.0.call(&mut new_x[..s])
                         } else {
                             println!("jet arity doesnt match");
@@ -201,14 +201,14 @@ impl Twist {
                     }
                 },
                 [N(A(n)), f, x @ ..] => {
-                    let mut r = vec![f.clone(), N(A(n+1))];
+                    let mut r = vec![f.clone(), N(A(Rc::new((**n).clone()+1)))];
                     r.extend_from_slice(x.clone());
                     Some(cons(r))
                 },
                 // does this work? do i need to eval for e first?
                 // do i add a `if e.len() >= n`?
                 [N(W), N(A(n)), Expr(e), x @ ..] => {
-                    let s: usize = n.into();
+                    let s: usize = (&**n).into();
                     if x.len() > 0 {
                         let mut r = vec![e[s].clone()];
                         r.extend_from_slice(x.clone());
@@ -269,7 +269,7 @@ impl fmt::Debug for Twist {
 }
 
 fn main() {
-    let mut t = skew![(E, {Twist::atom(2)}, K, (S, K), (K, K, (K, K)), (S, K, K, K))];
+    let mut t = skew![(E, {A 2}, K, (S, K), (K, K, (K, K)), (S, K, K, K))];
     for i in 0..3 {
         println!("step {} {:?}", i, t);
         t = t.reduce().unwrap()

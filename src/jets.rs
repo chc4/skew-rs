@@ -10,7 +10,7 @@ use skew;
 
 fn call<T: Jetted + 'static>(j: T, mut args: Vec<Twist>) -> Twist {
     // just uses K for the jet hint for now
-    let mut x = vec![N(E), N(A(j.arity())), N(K), J(Jet(Rc::new(j)))];
+    let mut x = vec![N(E), N(A(Rc::new(j.arity()))), N(K), J(Jet(Rc::new(j)))];
     x.append(&mut args);
     cons(x)
 }
@@ -29,7 +29,7 @@ impl Jetted for Add {
     }
     fn call(&self, args: &[Twist]) -> Option<Twist> {
         if let [N(A(n)), N(A(m))] = args {
-            return Some(N(A(n + m)));
+            return Some(N(A(Rc::new((**n).clone() + (**m).clone()))));
         } else {
             return None;
         }
@@ -60,7 +60,7 @@ impl Jetted for Mul {
     }
     fn call(&self, args: &[Twist]) -> Option<Twist> {
         if let [N(A(n)), N(A(m))] = args {
-            return Some(N(A(n * m)));
+            return Some(N(A(Rc::new((**n).clone() * (**m).clone()))));
         } else {
             return None;
         }
@@ -78,7 +78,7 @@ impl Jetted for If {
     }
     fn call(&self, args: &[Twist]) -> Option<Twist> {
         if let [N(A(n)), t, f] = args {
-            if *n == 0 {
+            if **n == 0 {
                 return Some(t.clone());
             } else {
                 return Some(f.clone());
