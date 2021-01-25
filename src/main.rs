@@ -165,7 +165,7 @@ impl Twist {
                     }
                     Some(cons(s))
                 },
-                [N(E), N(A(n)), _t, f, x @ ..] if Int::from(x.len()) >= *n => {
+                [N(E), N(A(n)), _t, f, x @ ..] if x.len() >= *n => {
                     let mut arity = n;
                     let mut jetted = None;
                     println!("jet arity {}", arity);
