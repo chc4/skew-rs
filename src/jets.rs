@@ -137,23 +137,24 @@ impl Jetted for If {
     }
 }
 
-//#[test]
-//fn test_if_true() {
-//    let t1 = call(If, vec![Twist::atom(0), Twist::atom(1), Twist::atom(2)]);
-//    assert_eq!(t1.reduce().unwrap(), Twist::atom(1));
-//}
-//#[test]
-//fn test_if_false() {
-//    let t1 = call(If, vec![Twist::atom(1), Twist::atom(1), Twist::atom(2)]);
-//    assert_eq!(t1.reduce().unwrap(), Twist::atom(2));
-//}
-//#[test]
-//fn test_if_lazy() {
-//    let t1 = call(If, vec![Twist::atom(0), defer(Twist::atom(1)), defer(Twist::atom(2)), N(K)]).reduce().unwrap();
-//    assert_eq!(t1, delay(Twist::atom(1)));
-//}
-//#[test]
-//fn test_if_lazy_deep() {
-//    let t1 = cons(vec![call(If, vec![Twist::atom(0), defer(Twist::atom(1)), defer(Twist::atom(2))]), N(K)]);
-//    assert_eq!(t1.reduce().unwrap(), delay(Twist::atom(1)));
-//}
+#[test]
+fn test_if_true() {
+    let t1 = call(If, skew![({A 0}, {A 1}, {A 2})]);
+    assert_eq!(t1.reduce().unwrap(), Twist::atom(1));
+}
+#[test]
+fn test_if_false() {
+    let t1 = call(If, skew![({A 1}, {A 1}, {A 2})]);
+    assert_eq!(t1.reduce().unwrap(), Twist::atom(2));
+}
+#[test]
+fn test_if_lazy() {
+    let t1 = call(If, skew![({A 0}, {defer(Twist::atom(1))}, {defer(Twist::atom(2))}, K)]);
+    assert_eq!(t1.reduce().unwrap(), delay(Twist::atom(1)));
+}
+#[test]
+fn test_if_lazy_deep() {
+    //let t1 = cons(vec![call(If, vec![Twist::atom(0), defer(Twist::atom(1)), defer(Twist::atom(2))]), N(K)]);
+    let t1 = skew![({call(If, skew![({A 0}, {defer(Twist::atom(1))}, {defer(Twist::atom(2))})])}, K)];
+    assert_eq!(t1.reduce().unwrap(), delay(Twist::atom(1)));
+}
