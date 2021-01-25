@@ -84,6 +84,7 @@ fn cons(mut exprs: Vec<Twist>) -> Twist {
 macro_rules! skew {
     (S) => { N(S) };
     (K) => { N(K) };
+    (E) => { N(E) };
     ( ($( $x:tt ),+)) => {
         {
             let mut temp_vec: Vec<Twist> = Vec::new();
@@ -202,10 +203,12 @@ impl Twist {
                     r.extend_from_slice(x.clone());
                     Some(cons(r))
                 },
-                // this is wrong and it has to use extend_from_slice too lol
-                [N(W), N(A(n)), x @ ..] if x.len() >= *n => {
+                // does this work? do i need to eval for e first?
+                [N(W), N(A(n)), Expr(e), x @ ..] if x.len() >= *n => {
                     let s: usize = n.into();
-                    Some(x[s].clone())
+                    let mut r = vec![e[s].clone()];
+                    r.extend_from_slice(x.clone());
+                    Some(cons(r))
                 },
                 //// these rules force reduction of E arguments first
                 //// it also ruins our cache coherency though :(
@@ -259,7 +262,7 @@ impl fmt::Debug for Twist {
 }
 
 fn main() {
-    let mut t = cons(vec![N(E), Twist::atom(2), N(K), cons(vec![N(S), N(K)]), cons(vec![N(K), N(K), cons(vec![N(K), N(K)])]), cons(vec![N(S), N(K), N(K), N(K)])]);
+    let mut t = skew![(E, {Twist::atom(2)}, K, (S, K), (K, K, (K, K)), (S, K, K, K))];
     for i in 0..3 {
         println!("step {} {:?}", i, t);
         t = t.reduce().unwrap()
