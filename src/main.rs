@@ -85,6 +85,7 @@ macro_rules! skew {
     (S) => { N(S) };
     (K) => { N(K) };
     (E) => { N(E) };
+    (W) => { N(W) };
     ( ($( $x:tt ),+)) => {
         {
             let mut temp_vec: Vec<Twist> = Vec::new();
@@ -94,6 +95,7 @@ macro_rules! skew {
             cons(temp_vec)
         }
     };
+    ({A $x:expr}) => { Twist::atom($x) };
     ({$x:expr}) => { $x.clone() };
 }
 
@@ -204,11 +206,16 @@ impl Twist {
                     Some(cons(r))
                 },
                 // does this work? do i need to eval for e first?
-                [N(W), N(A(n)), Expr(e), x @ ..] if x.len() >= *n => {
+                // do i add a `if e.len() >= n`?
+                [N(W), N(A(n)), Expr(e), x @ ..] => {
                     let s: usize = n.into();
-                    let mut r = vec![e[s].clone()];
-                    r.extend_from_slice(x.clone());
-                    Some(cons(r))
+                    if x.len() > 0 {
+                        let mut r = vec![e[s].clone()];
+                        r.extend_from_slice(x.clone());
+                        Some(cons(r))
+                    } else {
+                        Some(e[s].clone())
+                    }
                 },
                 //// these rules force reduction of E arguments first
                 //// it also ruins our cache coherency though :(
@@ -324,12 +331,18 @@ mod test {
     fn test_swap() {
         let i = skew![(S,K,K)];
         let swap = skew![(S, (K, (S, {i})), K)];
-        let mut apply_swap = skew![({swap}, {Twist::atom(1)}, K, K)];
+        let mut apply_swap = skew![({swap}, {A 1}, K, K)];
         for i in 0..6 {
             println!("before reduce {:?}", apply_swap);
             apply_swap = apply_swap.reduce().unwrap();
             println!("reduce swap {:?}", apply_swap);
         }
         assert_eq!(apply_swap, cons(vec![N(K), Twist::atom(1), N(K)]));
+    }
+
+    #[test]
+    fn test_pick() {
+        let t1 = skew![(W, {A 1}, ({A 1}, {A 1}, {A 2}))];
+        assert_eq!(t1.reduce().unwrap(), Twist::atom(1));
     }
 }
