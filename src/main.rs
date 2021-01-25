@@ -93,7 +93,7 @@ macro_rules! skew {
             cons(temp_vec)
         }
     };
-    ({$x:expr}) => { $x };
+    ({$x:expr}) => { $x.clone() };
 }
 
 // skew is defined as left-associative: (x y z) is grouped as ((x y) z)
@@ -287,15 +287,15 @@ mod test {
     #[test]
     fn test_s() {
         let t1 = skew![(S, K, (S, K), (S, K, K))].reduce().unwrap();
-        assert_eq!(t1, cons(vec![N(K), cons(vec![N(S), N(K), N(K)]), cons(vec![N(S), N(K), cons(vec![N(S), N(K), N(K)])])]));
+        assert_eq!(t1, skew![(K, (S, K, K), (S, K, (S, K, K)))]);
         let t2 = t1.reduce().unwrap();
-        assert_eq!(t2, cons(vec![N(S), N(K), N(K)]));
+        assert_eq!(t2, skew![(S, K, K)]);
     }
 
     #[test]
     fn test_s2() {
         let t1 = skew![(S, K, K, K)].reduce().unwrap();
-        assert_eq!(t1, cons(vec![N(K), N(K), cons(vec![N(K), N(K)])]));
+        assert_eq!(t1, skew![(K, K, (K, K))]);
     }
     #[test]
     pub fn test_e() {
@@ -320,8 +320,8 @@ mod test {
     #[test]
     fn test_swap() {
         let i = skew![(S,K,K)];
-        let swap = skew![(S, (K, (S, {i.clone()})), K)];
-        let mut apply_swap = skew![({swap.clone()}, {Twist::atom(1)}, K, K)];
+        let swap = skew![(S, (K, (S, {i})), K)];
+        let mut apply_swap = skew![({swap}, {Twist::atom(1)}, K, K)];
         for i in 0..6 {
             println!("before reduce {:?}", apply_swap);
             apply_swap = apply_swap.reduce().unwrap();
