@@ -69,7 +69,7 @@ enum Twist {
 fn cons(mut exprs: Vec<Twist>) -> Twist {
     match &mut exprs.as_mut_slice() {
         // flatten ((x y) z) -> (x y z)
-        [Expr(ref mut head), tail @ ..] => {
+        [Expr(ref mut head), tail @ ..] if tail.len() > 0 => {
             //println!("flattening {:?} {:?}", head, tail);
             let l = Rc::make_mut(head);
             l.extend_from_slice(tail);
@@ -125,7 +125,15 @@ impl Twist {
     fn reduce(&self) -> Option<Self> {
         if let Expr(exprs) = self {
             let o: Option<Self> = match &exprs.as_slice() {
-                [N(K), x, _y, z @ ..] => Some(x.clone()),
+                [N(K), x, _y, z @ ..] => {
+                    if z.len() > 0 {
+                        let mut v = vec![x.clone()];
+                        v.extend_from_slice(z);
+                        Some(cons(v))
+                    } else {
+                        Some(x.clone())
+                    }
+                },
                 [N(S), x, y, z, w @ ..] => {
                     let mut s = vec![];
                     let mut xz = vec![x.clone(), z.clone()];
@@ -286,5 +294,18 @@ mod test {
         let mut apply_i = cons(vec![i.clone(), Twist::atom(1)]);
         apply_i.boil();
         assert_eq!(apply_i, Twist::atom(1));
+    }
+
+    #[test]
+    fn test_swap() {
+        let i = cons(vec![N(S), N(K), N(K)]);
+        let swap = cons(vec![N(S), cons(vec![N(K), cons(vec![N(S), i.clone()])]), N(K)]);
+        let mut apply_swap = cons(vec![swap.clone(), Twist::atom(1), N(K), N(K)]);
+        for i in 0..6 {
+            println!("before reduce {:?}", apply_swap);
+            apply_swap = apply_swap.reduce().unwrap();
+            println!("reduce swap {:?}", apply_swap);
+        }
+        assert_eq!(apply_swap, cons(vec![N(K), Twist::atom(1), N(K)]));
     }
 }
