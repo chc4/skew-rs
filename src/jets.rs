@@ -46,6 +46,15 @@ fn test_add() {
     assert_eq!(t1.reduce().unwrap(), Twist::atom(3));
 }
 #[test]
+fn test_add_twice() {
+    //let t1 = cons(vec![N(E), Twist::atom(2), N(K), J(Jet(Box::new(Add))), Twist::atom(1), Twist::atom(2)]).reduce().unwrap();
+    let t1 = call(Add, vec![Twist::atom(1), Twist::atom(2)]);
+    let t1 = cons(vec![N(E), Twist::atom(2), N(K), J(Jet(Rc::new(Add))), t1, Twist::atom(3)]).reduce().unwrap();
+    println!("add {:?}", t1);
+    assert_eq!(t1, Twist::atom(6));
+}
+
+#[test]
 fn test_add_argument_eval() {
     let lazy_1 = delay(delay(Twist::atom(1)));
     let t1 = cons(vec![N(E), Twist::atom(2), N(K), J(Jet(Rc::new(Add))), lazy_1, Twist::atom(2)]).reduce().unwrap();

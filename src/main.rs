@@ -121,6 +121,9 @@ macro_rules! skew {
 // semantics.
 // can we just use (K map) instead? does that ruin codegen? idk how SKI compilers
 // work.
+//
+// use smarter Rc<Ints> that dont require cloning if theyre <64 bits - we also
+// don't need *signed* ints
 
 impl Twist {
     /// Generate a new atom from a number
