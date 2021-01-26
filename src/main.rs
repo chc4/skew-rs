@@ -1,3 +1,4 @@
+#![feature(box_syntax)]
 #![allow(dead_code, unused_parens)]
 use std::rc::Rc;
 use std::fmt;
@@ -14,7 +15,7 @@ use Twist::*;
 mod jets;
 
 #[derive(Clone, PartialEq, Debug)]
-enum Skew {
+pub enum Skew {
     S,
     K,
     E,
@@ -41,7 +42,7 @@ dyn_clone::clone_trait_object!(Jetted);
 // this should probably be a (Rc<dyn Jetter>, TypeId) so that
 // jets can match on it for arguments.
 #[derive(Clone)]
-struct Jet(Rc<dyn Jetted>);
+pub struct Jet(Rc<dyn Jetted>);
 impl PartialEq for Jet {
     fn eq(&self, other: &Self) -> bool {
         //Jet::eq(self.as_ref(), other)
@@ -59,7 +60,7 @@ impl PartialEq for dyn Jetted {
 }
 
 #[derive(Clone, PartialEq)]
-enum Twist {
+pub enum Twist {
     Expr(Rc<Vec<Twist>>),
     N(Skew),
     J(Jet)
@@ -271,14 +272,25 @@ impl fmt::Debug for Twist {
     }
 }
 
+mod lambda;
+use lambda::*;
+use lambda::{Lambda, LTerm};
 fn main() {
-    let mut t = skew![(E, {A 2}, K, (S, K), (K, K, (K, K)), (S, K, K, K))];
-    for i in 0..3 {
-        println!("step {} {:?}", i, t);
-        t = t.reduce().unwrap()
-    }
-    println!("final {:?}", t);
-    assert_eq!(t, N(K));
+    let lam = Lambda::Func("x".to_string(), box Lambda::Term(LTerm::Var("x".to_string())));
+    assert_eq!(lam.transform().open(), skew![(S, K, K)]);
+
+    let mut tru = Lambda::Func("x".to_string(), box Lambda::Func("y".to_string(),
+        box Lambda::App(
+            box Lambda::Term(LTerm::Var("y".to_string())),
+            box Lambda::Term(LTerm::Var("x".to_string()))
+        )
+    ));
+
+    println!("before: {:?}", tru);
+    let twist_tru = tru.transform().open();
+    println!("after: {:?}", twist_tru);
+    //tru = lambda::transform(tru);
+    //println!("after: {:?}", tru);
 }
 
 mod test {
@@ -312,7 +324,7 @@ mod test {
     }
     #[test]
     pub fn test_e() {
-        crate::main()
+        //crate::main()
     }
     #[test]
     fn test_increment() {
