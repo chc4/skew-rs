@@ -279,13 +279,13 @@ mod lambda;
 use lambda::*;
 use lambda::{Lambda, LTerm};
 fn main() {
-    let lam = Lambda::Func("x".to_string(), box Lambda::Term(LTerm::Var("x".to_string())));
+    let mut lam = Lambda::Func("x", box Lambda::Term(LTerm::Var("x")));
     assert_eq!(lam.transform().open(), skew![(S, K, K)]);
 
-    let mut swap = Lambda::Func("x".to_string(), box Lambda::Func("y".to_string(),
+    let mut swap = Lambda::Func("x", box Lambda::Func("y",
         box Lambda::App(
-            box Lambda::Term(LTerm::Var("y".to_string())),
-            box Lambda::Term(LTerm::Var("x".to_string()))
+            box Lambda::Term(LTerm::Var("y")),
+            box Lambda::Term(LTerm::Var("x"))
         )
     ));
 

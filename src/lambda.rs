@@ -50,41 +50,22 @@ impl Jetted for B {
 // fact = Y(\f.\n.if(is0(n) 1 mul(n f(dec(n)))))
 
 #[derive(Debug, Clone)]
-pub enum LTerm {
+pub enum LTerm<'a> {
     Twist(Twist),
-    Var(String),
+    Var(&'a str),
 }
 #[derive(Debug, Clone)]
-pub enum Lambda {
-    Func(String, Box<Lambda>),
-    App(Box<Lambda>, Box<Lambda>),
-    Term(LTerm),
+pub enum Lambda<'a> {
+    Func(&'a str, Box<Lambda<'a>>),
+    App(Box<Lambda<'a>>, Box<Lambda<'a>>),
+    Term(LTerm<'a>),
 }
 
-impl Lambda {
-    pub fn free2(&self, var: String) -> bool {
-        fn fv(lam: Lambda) -> Vec<String> {
-            match lam {
-                Lambda::Term(LTerm::Var(x)) => vec![x],
-                Lambda::App(x, y) => {
-                    let mut left = fv(*x);
-                    let mut right = fv(*y);
-                    left.append(&mut right);
-                    left
-                },
-                Lambda::Func(x, bod) => {
-                    let mut fbod = fv(*bod);
-                    fbod.drain(..).filter(|v| **v != x).collect() },
-                _ => vec![]
-            }
-        }
-        fv(self.clone()).contains(&var)
-    }
-
-    pub fn free(&self, var: String) -> bool {
+impl<'a> Lambda<'a> {
+    pub fn free(&self, var: &'a str) -> bool {
         match self {
             Lambda::Term(LTerm::Var(x)) => var == *x,
-            Lambda::App(x, y) => { x.free(var.clone()) || y.free(var) },
+            Lambda::App(x, y) => { x.free(var) || y.free(var) },
             Lambda::Func(x, bod) => {
                 if( *x == var) {
                     return false
@@ -95,45 +76,45 @@ impl Lambda {
         }
     }
 
-    pub fn transform(&self) -> Lambda {
+    pub fn transform(&mut self) -> Lambda<'a> {
         println!("reducing {:?}", self);
         match self.clone() {
-            Lambda::App(m, n) => {
+            Lambda::App(mut m, mut n) => {
                 println!("2");
                 Lambda::App(
                     box m.transform(),
                     box n.transform()
                 )
             },
-            Lambda::Func(x, body) => match *body.clone() {
-                y @ _ if !body.free(x.clone()) => {
+            Lambda::Func(x, mut body) => match *body.clone() {
+                mut y @ _ if !body.free(x) => {
                     println!("3");
                     Lambda::App(box Lambda::Term(LTerm::Twist(Twist::N(Skew::K))), box y.transform())
                 },
-                Lambda::Term(LTerm::Var(x2)) if x.clone() == x2 => {
+                Lambda::Term(LTerm::Var(x2)) if x == x2 => {
                     println!("4");
                     Lambda::Term(LTerm::Twist(skew![(S, K, K)]))
                 },
-                Lambda::Func(y, body2) if body2.free(x.clone()) => {
+                Lambda::Func(y, body2) if body2.free(x) => {
                     println!("5");
-                    Lambda::Func(x.clone(), box body.clone().transform()).transform()
+                    Lambda::Func(x, box body.transform()).transform()
                 }
-                Lambda::App(e, box Lambda::Term(LTerm::Var(y))) if !e.free(x.clone()) => {
+                Lambda::App(mut e, box Lambda::Term(LTerm::Var(y))) if !e.free(x) => {
                     println!("fancy n");
                     e.transform()
                 },
-                Lambda::App(m, n) => {
+                Lambda::App(mut m, mut n) => {
                     let c = cons(vec![N(E), N(A(Rc::new(C.arity()))), N(K), J(Jet(Rc::new(C)))]);
                     let b = cons(vec![N(E), N(A(Rc::new(B.arity()))), N(K), J(Jet(Rc::new(B)))]);
-                    match (m.free(x.clone()), n.free(x.clone())) {
+                    match (m.free(x), n.free(x)) {
                         (true, true) => {
                             println!("6");
                             Lambda::App(
                                 box Lambda::App(
                                     box Lambda::Term(LTerm::Twist(Twist::N(Skew::S))),
-                                    box Lambda::Func(x.clone(), m.clone()).transform()
+                                    box Lambda::Func(x, m).transform()
                                 ),
-                                box Lambda::Func(x.clone(), n.clone()).transform()
+                                box Lambda::Func(x, n).transform()
                             )
                         },
                         (true, false) => {
@@ -141,7 +122,7 @@ impl Lambda {
                             Lambda::App(
                                 box Lambda::App(
                                     box Lambda::Term(LTerm::Twist(c)),
-                                    box Lambda::Func(x.clone(), m.clone()).transform()
+                                    box Lambda::Func(x, m).transform()
                                 ),
                                 box n.transform()
                             )
@@ -153,7 +134,7 @@ impl Lambda {
                                     box Lambda::Term(LTerm::Twist(b)),
                                     box m.transform()
                                 ),
-                                box Lambda::Func(x.clone(), n.clone()).transform()
+                                box Lambda::Func(x, n).transform()
                             )
                         },
                         (false, false) => panic!("what goes here?"),
