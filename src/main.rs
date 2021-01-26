@@ -20,6 +20,7 @@ pub enum Skew {
     K,
     E,
     W,
+    X,
     A(Rc<Int>),
     // Lazy(Box<dyn Stand>) that we decompose into a concrete Skew?
     // how do we do this efficiently in the Skew::reduce function -
@@ -87,6 +88,7 @@ macro_rules! skew {
     (K) => { N(K) };
     (E) => { N(E) };
     (W) => { N(W) };
+    (X) => { N(X) };
     ( ($( $x:tt ),+)) => {
         {
             let mut temp_vec: Vec<Twist> = Vec::new();
@@ -136,6 +138,7 @@ impl Twist {
         let mut curr = N(K);
         mem::swap(&mut curr, self);
         loop {
+            println!("boiling {:?}", curr);
             if let Some(next) = curr.reduce() {
                 curr = next;
             } else {
@@ -204,7 +207,7 @@ impl Twist {
                         return Some(cons(unjetted));
                     }
                 },
-                [N(A(n)), f, x @ ..] => {
+                [N(X), N(A(n)), f, x @ ..] => {
                     let mut r = vec![f.clone(), N(A(Rc::new((**n).clone()+1)))];
                     r.extend_from_slice(x.clone());
                     Some(cons(r))
@@ -279,18 +282,21 @@ fn main() {
     let lam = Lambda::Func("x".to_string(), box Lambda::Term(LTerm::Var("x".to_string())));
     assert_eq!(lam.transform().open(), skew![(S, K, K)]);
 
-    let mut tru = Lambda::Func("x".to_string(), box Lambda::Func("y".to_string(),
+    let mut swap = Lambda::Func("x".to_string(), box Lambda::Func("y".to_string(),
         box Lambda::App(
             box Lambda::Term(LTerm::Var("y".to_string())),
             box Lambda::Term(LTerm::Var("x".to_string()))
         )
     ));
 
-    println!("before: {:?}", tru);
-    let twist_tru = tru.transform();
-    println!("after: {:?}", twist_tru);
-    //tru = lambda::transform(tru);
-    //println!("after: {:?}", tru);
+    println!("before: {:?}", swap);
+    let twist_swap = swap.transform().open();
+    println!("after: {:?}", twist_swap);
+
+    let mut test_swap = skew![({twist_swap}, {A 1}, {A 2})];
+    println!("test swap: {:?}", test_swap);
+    test_swap.boil();
+    assert_eq!(test_swap, skew![({A 2}, {A 1})]);
 }
 
 mod test {
@@ -328,7 +334,7 @@ mod test {
     }
     #[test]
     fn test_increment() {
-        let t1 = cons(vec![Twist::atom(1), N(K), N(K)]).reduce().unwrap().reduce().unwrap();
+        let t1 = cons(vec![N(X), Twist::atom(1), N(K), N(K)]).reduce().unwrap().reduce().unwrap();
         assert_eq!(t1, Twist::atom(2));
     }
 

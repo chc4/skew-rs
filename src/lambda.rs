@@ -10,6 +10,42 @@ use Jet;
 use cons;
 use skew;
 
+#[derive(Clone, PartialEq)]
+struct C;
+impl Jetted for C {
+    fn arity(&self) -> Int {
+        3.into()
+    }
+    fn call(&self, args: &[Twist]) -> Option<Twist> {
+        if let [f, g, x] = args {
+            return Some(skew![({f}, {x}, {g})]);
+        } else {
+            return None;
+        }
+    }
+    fn name(&self) -> String {
+        "C".into()
+    }
+}
+
+#[derive(Clone, PartialEq)]
+struct B;
+impl Jetted for B {
+    fn arity(&self) -> Int {
+        3.into()
+    }
+    fn call(&self, args: &[Twist]) -> Option<Twist> {
+        if let [f, g, x] = args {
+            return Some(skew![({f}, ({g}, {x}))]);
+        } else {
+            return None;
+        }
+    }
+    fn name(&self) -> String {
+        "B".into()
+    }
+}
+
 // TARGET FUNCTION
 // fact = Y(\f.\n.if(is0(n) 1 mul(n f(dec(n)))))
 
@@ -86,24 +122,44 @@ impl Lambda {
                     println!("fancy n");
                     e.transform()
                 },
-                Lambda::App(m, n) if m.free(x.clone()) || n.free(x.clone()) => {
-                    println!("6");
-                    Lambda::App(
-                        box Lambda::App(
-                            box Lambda::Term(LTerm::Twist(Twist::N(Skew::S))),
-                            box Lambda::Func(x.clone(), m.clone()).transform()
-                        ),
-                        box Lambda::Func(x.clone(), n.clone()).transform()
-                    )
+                Lambda::App(m, n) => {
+                    let c = cons(vec![N(E), N(A(Rc::new(C.arity()))), N(K), J(Jet(Rc::new(C)))]);
+                    let b = cons(vec![N(E), N(A(Rc::new(B.arity()))), N(K), J(Jet(Rc::new(B)))]);
+                    match (m.free(x.clone()), n.free(x.clone())) {
+                        (true, true) => {
+                            println!("6");
+                            Lambda::App(
+                                box Lambda::App(
+                                    box Lambda::Term(LTerm::Twist(Twist::N(Skew::S))),
+                                    box Lambda::Func(x.clone(), m.clone()).transform()
+                                ),
+                                box Lambda::Func(x.clone(), n.clone()).transform()
+                            )
+                        },
+                        (true, false) => {
+                            println!("C");
+                            Lambda::App(
+                                box Lambda::App(
+                                    box Lambda::Term(LTerm::Twist(c)),
+                                    box Lambda::Func(x.clone(), m.clone()).transform()
+                                ),
+                                box n.transform()
+                            )
+                        },
+                        (false, true) => {
+                            println!("B");
+                            Lambda::App(
+                                box Lambda::App(
+                                    box Lambda::Term(LTerm::Twist(b)),
+                                    box m.transform()
+                                ),
+                                box Lambda::Func(x.clone(), n.clone()).transform()
+                            )
+                        },
+                        (false, false) => panic!("what goes here?"),
+                    }
                 },
                 x @ _ => x
-                // this could instead be
-                //match (m.free(var), n.free(var)) {
-                //  (True, False) => B,
-                //  (False, True) => C,
-                //  (False, False) => S,
-                //  (True, True) => free function
-                //}
             },
             x @ _ => { println!("1"); x },
         }
