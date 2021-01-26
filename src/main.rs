@@ -1,4 +1,4 @@
-#![feature(box_syntax)]
+#![feature(box_syntax, box_patterns)]
 #![allow(dead_code, unused_parens)]
 use std::rc::Rc;
 use std::fmt;
@@ -287,7 +287,7 @@ fn main() {
     ));
 
     println!("before: {:?}", tru);
-    let twist_tru = tru.transform().open();
+    let twist_tru = tru.transform();
     println!("after: {:?}", twist_tru);
     //tru = lambda::transform(tru);
     //println!("after: {:?}", tru);

@@ -26,6 +26,25 @@ pub enum Lambda {
 }
 
 impl Lambda {
+    pub fn free2(&self, var: String) -> bool {
+        fn fv(lam: Lambda) -> Vec<String> {
+            match lam {
+                Lambda::Term(LTerm::Var(x)) => vec![x],
+                Lambda::App(x, y) => {
+                    let mut left = fv(*x);
+                    let mut right = fv(*y);
+                    left.append(&mut right);
+                    left
+                },
+                Lambda::Func(x, bod) => {
+                    let mut fbod = fv(*bod);
+                    fbod.drain(..).filter(|v| **v != x).collect() },
+                _ => vec![]
+            }
+        }
+        fv(self.clone()).contains(&var)
+    }
+
     pub fn free(&self, var: String) -> bool {
         match self {
             Lambda::Term(LTerm::Var(x)) => var == *x,
@@ -63,6 +82,10 @@ impl Lambda {
                     println!("5");
                     Lambda::Func(x.clone(), box body.clone().transform()).transform()
                 }
+                Lambda::App(e, box Lambda::Term(LTerm::Var(y))) if !e.free(x.clone()) => {
+                    println!("fancy n");
+                    e.transform()
+                },
                 Lambda::App(m, n) if m.free(x.clone()) || n.free(x.clone()) => {
                     println!("6");
                     Lambda::App(
