@@ -3,10 +3,38 @@ use ramp::Int;
 use Twist::*;
 use Twist;
 use Skew::*;
-use Jetted;
-use Jet;
 use cons;
 use skew;
+use dyn_clone::DynClone;
+
+pub trait Jetted: DynClone {
+    fn arity(&self) -> Int;
+    fn call(&self, args: &[Twist]) -> Option<Twist>;
+    fn name(&self) -> String;
+}
+dyn_clone::clone_trait_object!(Jetted);
+
+// workaround for #39128
+// this should probably be a (Rc<dyn Jetter>, TypeId) so that
+// jets can match on it for arguments.
+#[derive(Clone)]
+pub struct Jet(pub Rc<dyn Jetted>);
+impl PartialEq for Jet {
+    fn eq(&self, other: &Self) -> bool {
+        //Jet::eq(self.as_ref(), other)
+        <Rc<dyn Jetted> as PartialEq>::eq(&self.0, &other.0)
+    }
+}
+
+impl PartialEq for dyn Jetted {
+    fn eq(&self, other: &Self) -> bool {
+        // XXX: add Any downcasting impl?
+        // i dont think we can actually use the derive partialeq, since
+        // we *do* want jet == skew to be true if jet.normal() == skew
+        false
+    }
+}
+
 
 #[inline]
 fn call<T: Jetted + 'static>(j: T, mut args: Twist) -> Twist {
@@ -27,7 +55,7 @@ fn defer(t: Twist) -> Twist {
 }
 
 #[derive(Clone, PartialEq)]
-struct Add;
+pub struct Add;
 impl Jetted for Add {
     fn arity(&self) -> Int {
         2.into()

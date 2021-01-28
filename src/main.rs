@@ -1,4 +1,4 @@
-#![feature(box_syntax, box_patterns)]
+#![feature(box_syntax, box_patterns, const_mut_refs)]
 #![allow(dead_code, unused_parens)]
 use std::rc::Rc;
 use std::fmt;
@@ -7,12 +7,15 @@ use std::mem;
 
 extern crate ramp;
 extern crate dyn_clone;
+extern crate linkme;
 use ramp::Int;
-use dyn_clone::DynClone;
 
 use Skew::*;
 use Twist::*;
 mod jets;
+use jets::{Jet, Jetted};
+mod turboprop;
+use turboprop::{turboprop};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Skew {
@@ -32,45 +35,20 @@ pub enum Skew {
     // actual skew if needed)
 }
 
-trait Jetted: DynClone {
-    fn arity(&self) -> Int;
-    fn call(&self, args: &[Twist]) -> Option<Twist>;
-    fn name(&self) -> String;
-}
-dyn_clone::clone_trait_object!(Jetted);
-
-// workaround for #39128
-// this should probably be a (Rc<dyn Jetter>, TypeId) so that
-// jets can match on it for arguments.
-#[derive(Clone)]
-pub struct Jet(Rc<dyn Jetted>);
-impl PartialEq for Jet {
-    fn eq(&self, other: &Self) -> bool {
-        //Jet::eq(self.as_ref(), other)
-        <Rc<dyn Jetted> as PartialEq>::eq(&self.0, &other.0)
-    }
-}
-
-impl PartialEq for dyn Jetted {
-    fn eq(&self, other: &Self) -> bool {
-        // XXX: add Any downcasting impl?
-        // i dont think we can actually use the derive partialeq, since
-        // we *do* want jet == skew to be true if jet.normal() == skew
-        false
-    }
-}
-
 #[derive(Clone, PartialEq)]
 pub enum Twist {
     Expr(Rc<Vec<Twist>>),
     N(Skew),
-    J(Jet)
+    J(Jet),
+    Turbo(&'static dyn Jetted), // A jet we register at compile-time and special-case in the vm
 }
 
 #[inline]
 fn cons(mut exprs: Vec<Twist>) -> Twist {
     match &mut exprs.as_mut_slice() {
         // flatten ((x y) z) -> (x y z)
+        // XXX: have pre-registered jets have a fastpath so we dont reallocate
+        // them to append arguments?
         [Expr(ref mut head), tail @ ..] if tail.len() > 0 => {
             //println!("flattening {:?} {:?}", head, tail);
             let l = Rc::make_mut(head);
@@ -152,6 +130,7 @@ impl Twist {
     fn reduce(&self) -> Option<Self> {
         if let Expr(exprs) = self {
             let o: Option<Self> = match &exprs.as_slice() {
+                prop @ [Turbo(_), ..] => turboprop::turboprop(prop),
                 [N(K), x, _y, z @ ..] => {
                     if z.len() > 0 {
                         let mut v = vec![x.clone()];
@@ -270,6 +249,9 @@ impl fmt::Debug for Twist {
             },
             J(j) => {
                 write!(f, "{}", j.0.name())
+            },
+            Turbo(prop) => {
+                write!(f, "{}", prop.name())
             }
         }
     }

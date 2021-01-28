@@ -11,7 +11,7 @@ use cons;
 use skew;
 
 #[derive(Clone, PartialEq)]
-struct C;
+pub struct C;
 impl Jetted for C {
     fn arity(&self) -> Int {
         3.into()
@@ -106,6 +106,7 @@ impl<'a> Lambda<'a> {
                 Lambda::App(mut m, mut n) => {
                     let c = cons(vec![N(E), N(A(Rc::new(C.arity()))), N(K), J(Jet(Rc::new(C)))]);
                     let b = cons(vec![N(E), N(A(Rc::new(B.arity()))), N(K), J(Jet(Rc::new(B)))]);
+                    use turboprop;
                     match (m.free(x), n.free(x)) {
                         (true, true) => {
                             println!("6");
@@ -121,7 +122,7 @@ impl<'a> Lambda<'a> {
                             println!("C");
                             Lambda::App(
                                 box Lambda::App(
-                                    box Lambda::Term(LTerm::Twist(c)),
+                                    box Lambda::Term(LTerm::Twist(Twist::Turbo(turboprop::TURBO_C))),
                                     box Lambda::Func(x, m).transform()
                                 ),
                                 box n.transform()
@@ -153,6 +154,28 @@ impl<'a> Lambda<'a> {
             _ => panic!(),
         }
     }
+}
+
+#[test]
+fn test_lambda(){
+    let mut lam = Lambda::Func("x", box Lambda::Term(LTerm::Var("x")));
+    assert_eq!(lam.transform().open(), skew![(S, K, K)]);
+
+    let mut swap = Lambda::Func("x", box Lambda::Func("y",
+        box Lambda::App(
+            box Lambda::Term(LTerm::Var("y")),
+            box Lambda::Term(LTerm::Var("x"))
+        )
+    ));
+
+    println!("before: {:?}", swap);
+    let twist_swap = swap.transform().open();
+    println!("after: {:?}", twist_swap);
+
+    let mut test_swap = skew![({twist_swap}, {A 1}, {A 2})];
+    println!("test swap: {:?}", test_swap);
+    test_swap.boil();
+    assert_eq!(test_swap, skew![({A 2}, {A 1})]);
 }
 // wow this looks terrible
 // adding B + C makes this more efficient, but not simpler

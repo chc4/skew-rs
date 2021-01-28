@@ -8,6 +8,7 @@ authors = ["Charlie Cummings <chc4000@gmail.com>"]
 [dependencies]
 ramp = "*"
 dyn-clone = "1.0.4"
+linkme = "0.2"
 
 [profile.release]
 lto = true
