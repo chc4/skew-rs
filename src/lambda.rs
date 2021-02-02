@@ -9,6 +9,9 @@ use Jetted;
 use Jet;
 use cons;
 use skew;
+use jets::call;
+use jets::Mul;
+use jets::jet;
 
 #[derive(Clone, PartialEq)]
 pub struct C;
@@ -16,6 +19,7 @@ impl Jetted for C {
     fn arity(&self) -> Int {
         3.into()
     }
+    #[inline]
     fn call(&self, args: &[Twist]) -> Option<Twist> {
         if let [f, g, x] = args {
             return Some(skew![({f}, {x}, {g})]);
@@ -29,11 +33,12 @@ impl Jetted for C {
 }
 
 #[derive(Clone, PartialEq)]
-struct B;
+pub struct B;
 impl Jetted for B {
     fn arity(&self) -> Int {
         3.into()
     }
+    #[inline]
     fn call(&self, args: &[Twist]) -> Option<Twist> {
         if let [f, g, x] = args {
             return Some(skew![({f}, ({g}, {x}))]);
@@ -104,8 +109,8 @@ impl<'a> Lambda<'a> {
                     e.transform()
                 },
                 Lambda::App(mut m, mut n) => {
-                    let c = cons(vec![N(E), N(A(Rc::new(C.arity()))), N(K), J(Jet(Rc::new(C)))]);
-                    let b = cons(vec![N(E), N(A(Rc::new(B.arity()))), N(K), J(Jet(Rc::new(B)))]);
+                    //let c = cons(vec![N(E), N(A(Rc::new(C.arity()))), N(K), J(Jet(Rc::new(C)))]);
+                    //let b = cons(vec![N(E), N(A(Rc::new(B.arity()))), N(K), J(Jet(Rc::new(B)))]);
                     use turboprop;
                     match (m.free(x), n.free(x)) {
                         (true, true) => {
@@ -132,7 +137,7 @@ impl<'a> Lambda<'a> {
                             println!("B");
                             Lambda::App(
                                 box Lambda::App(
-                                    box Lambda::Term(LTerm::Twist(b)),
+                                    box Lambda::Term(LTerm::Twist(Twist::Turbo(turboprop::TURBO_B))),
                                     box m.transform()
                                 ),
                                 box Lambda::Func(x, n).transform()
@@ -156,17 +161,28 @@ impl<'a> Lambda<'a> {
     }
 }
 
+macro_rules! lambda {
+    (fn#$x:ident.$($bod:tt) +) => {
+        box Lambda::Func(stringify!($x), lambda!($($bod)+))
+    };
+    ({$($x:tt)+}) => {
+        box Lambda::Term(LTerm::Twist($($x)+))
+    };
+
+    (($x:tt $y:tt)) => {
+        box Lambda::App(lambda!($x), lambda!($y))
+    };
+    ($x:ident) => {
+        box Lambda::Term(LTerm::Var(stringify!($x)))
+    };
+}
+
 #[test]
 fn test_lambda(){
-    let mut lam = Lambda::Func("x", box Lambda::Term(LTerm::Var("x")));
+    let mut lam = lambda!(fn#x.x);
     assert_eq!(lam.transform().open(), skew![(S, K, K)]);
 
-    let mut swap = Lambda::Func("x", box Lambda::Func("y",
-        box Lambda::App(
-            box Lambda::Term(LTerm::Var("y")),
-            box Lambda::Term(LTerm::Var("x"))
-        )
-    ));
+    let mut swap = lambda!(fn#x.fn#y.(y x));
 
     println!("before: {:?}", swap);
     let twist_swap = swap.transform().open();
@@ -176,6 +192,16 @@ fn test_lambda(){
     println!("test swap: {:?}", test_swap);
     test_swap.boil();
     assert_eq!(test_swap, skew![({A 2}, {A 1})]);
+}
+
+#[test]
+fn test_lambda_mul(){
+    let mut mul = lambda!(fn#x.fn#y.(({jet(Mul)} x) y));
+    let twist_mul = mul.transform().open();
+    println!("twist_mul: {:?}", twist_mul);
+    let mut c = skew![({twist_mul}, {A 6}, {A 7})];
+    c.boil();
+    assert_eq!(c, Twist::atom(42))
 }
 // wow this looks terrible
 // adding B + C makes this more efficient, but not simpler

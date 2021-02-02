@@ -28,10 +28,12 @@ macro_rules! turboprop {
             match twist {
                 $(
                 [Twist::Turbo(prop), args @ ..] if *prop as *const dyn Jetted == ($turbo as &'static dyn Jetted) && args.len() >= $arity => {
+                    // XX: extract this + main's jet handling to a helper
                     let mut new_args = args.to_owned();
                     for item in new_args[..$arity].iter_mut() {
                         item.boil();
                     }
+                    // XX: this actually has to call $instance.deopt() if its None
                     $instance.call(&new_args[..$arity])
                 },
                 )+
@@ -44,7 +46,8 @@ macro_rules! turboprop {
 }
 turboprop!(
     (2, STATIC_ADD, TURBO_ADD, jets::Add, jets::Add),
-    (3, STATIC_C, TURBO_C, lambda::C, lambda::C)
+    (3, STATIC_C, TURBO_C, lambda::C, lambda::C),
+    (3, STATIC_B, TURBO_B, lambda::B, lambda::B)
 );
 
 

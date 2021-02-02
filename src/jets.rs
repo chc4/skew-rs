@@ -35,9 +35,13 @@ impl PartialEq for dyn Jetted {
     }
 }
 
+pub fn jet<T: Jetted + 'static>(j: T) -> Twist {
+    let mut x = vec![N(E), N(A(Rc::new(j.arity()))), N(K), J(Jet(Rc::new(j)))];
+    cons(x)
+}
 
 #[inline]
-fn call<T: Jetted + 'static>(j: T, mut args: Twist) -> Twist {
+pub fn call<T: Jetted + 'static>(j: T, mut args: Twist) -> Twist {
     // just uses K for the jet hint for now
     let mut x = vec![N(E), N(A(Rc::new(j.arity()))), N(K), J(Jet(Rc::new(j)))];
     if let Expr(mut v) = args {
@@ -60,6 +64,7 @@ impl Jetted for Add {
     fn arity(&self) -> Int {
         2.into()
     }
+    #[inline]
     fn call(&self, args: &[Twist]) -> Option<Twist> {
         if let [N(A(n)), N(A(m))] = args {
             return Some(N(A(Rc::new((**n).clone() + (**m).clone()))));
@@ -126,7 +131,7 @@ fn test_add3_lazy(){
 }
 
 #[derive(Clone, PartialEq)]
-struct Mul;
+pub struct Mul;
 impl Jetted for Mul {
     fn arity(&self) -> Int {
         2.into()

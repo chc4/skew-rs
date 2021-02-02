@@ -181,6 +181,7 @@ impl Twist {
                     } else {
                         // we didn't have a Jet as a function, but still have a hint
                         // search for it in the jet registry?
+                        // this actually has to be f.deoptimize()
                         let mut unjetted = vec![f.clone()];
                         unjetted.extend_from_slice(new_x);
                         return Some(cons(unjetted));
