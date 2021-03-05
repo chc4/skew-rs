@@ -1,4 +1,4 @@
-#![feature(box_syntax, box_patterns, const_mut_refs)]
+#![feature(box_syntax, box_patterns, const_mut_refs, label_break_value)]
 #![allow(dead_code, unused_parens)]
 use std::rc::Rc;
 use std::fmt;
@@ -24,6 +24,7 @@ pub enum Skew {
     E,
     W,
     X,
+    Q,
     A(Rc<Int>),
     // Lazy(Box<dyn Stand>) that we decompose into a concrete Skew?
     // how do we do this efficiently in the Skew::reduce function -
@@ -67,6 +68,7 @@ macro_rules! skew {
     (E) => { N(E) };
     (W) => { N(W) };
     (X) => { N(X) };
+    (Q) => { N(Q) };
     ( ($( $x:tt ),+)) => {
         {
             let mut temp_vec: Vec<Twist> = Vec::new();
@@ -187,10 +189,8 @@ impl Twist {
                         return Some(cons(unjetted));
                     }
                 },
-                [N(X), N(A(n)), f, x @ ..] => {
-                    let mut r = vec![f.clone(), N(A(Rc::new((**n).clone()+1)))];
-                    r.extend_from_slice(x.clone());
-                    Some(cons(r))
+                [N(X), N(A(n)), x @ ..] => {
+                    Some(N(A(Rc::new((**n).clone()+1))))
                 },
                 // does this work? do i need to eval for e first?
                 // do i add a `if e.len() >= n`?
@@ -204,6 +204,16 @@ impl Twist {
                         Some(e[s].clone())
                     }
                 },
+                [N(Q), n, m, x @ ..] => {
+                    (||{
+                        if let (N(A(n)), N(A(m))) = (n, m) {
+                            if n == m {
+                                return Some(Twist::atom(0))
+                            }
+                        }
+                        return Some(Twist::atom(1))
+                    })()
+                }
                 //// these rules force reduction of E arguments first
                 //// it also ruins our cache coherency though :(
                 //[x @ .., y @ _] if cons(x.into()).reduce().is_some() => {
@@ -316,8 +326,15 @@ mod test {
         //crate::main()
     }
     #[test]
+    pub fn test_q() {
+        let t1 = skew![(Q, {A 5}, {A 5})].reduce().unwrap();
+        assert_eq!(t1, Twist::atom(0));
+        let t2 = skew![(Q, {A 5}, {A 6})].reduce().unwrap();
+        assert_eq!(t2, Twist::atom(1));
+    }
+    #[test]
     fn test_increment() {
-        let t1 = cons(vec![N(X), Twist::atom(1), N(K), N(K)]).reduce().unwrap().reduce().unwrap();
+        let t1 = cons(vec![N(X), Twist::atom(1)]).reduce().unwrap();
         assert_eq!(t1, Twist::atom(2));
     }
 

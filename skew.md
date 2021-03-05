@@ -1,34 +1,33 @@
 SKI calculus + CB + numbers + jets + reduction order + termination definition
 probably gonna be called SKEIN or something? idk
 ```
-    *((x y) z)                -> *(x y z)
+    *(x y)                    -> *(*x *y) # ???
+    *(x y z)                  -> *((*x *y) z) # ????
     *(K x y)                  -> x
-    *(S x y z)                -> (x z (y z))
-    *(E A(n) t f x_0 ... x_n) -> (f *x_0 … *x_n)
-    *(W A(i) (x_0 ... x_n))   -> x_i # i think this is enough to build `if` and `mock`
-    *(X A(n) f)               -> (f A(n+1)) # this is probably dumb
+    *(S x y z)                -> *(x z (y z))
+    *(E A(n) t f x_0 ... x_n) -> *(f *x_0 … *x_n)
+    *(W A(i) (x_0 ... x_n))   -> *x_i
+    *(W x y)                  -> ! # crash semantics (do we want this?)
+    *(X A(n))                 -> A(n+1)
+    *(Q A(n) A(m)) if n == m  -> A(0) # these can probably be synthesized but im too dumb
+    *(Q x y)                  -> A(1)
+
+    *(V K)                    -> A(0)
+    *(V S)                    -> A(1)
+    *(V E)                    -> A(2)
+    *(V W)                    -> A(3)
+    *(V X)                    -> A(4)
+    *(V Q)                    -> A(5)
+    *(V V)                    -> A(6)
+    *(V A(n))                 -> (A(7) A(n)) # can we do any better? should the others be (A(x) A(0)) instead too?
     *x                        -> x # halt execution
 
-    there's something dumb where this is different from SKI because SKI is defined
-    as (K x) returns a function that only returns x. we define only reducing
-    when we have both x and y. i think this is exposed to the interpreter thanks to
-    (W A(0) *(K x)) being either K or (K x) depending on how you implement it.
-    ??? think about this ??? is this a problem ??? is it actually observably ???
+    cmp x y = (Q x y)
+    if c t f = (W (X (Q c A(0))) (K (t f) K))
 
-    skew by design doesn't have structural equality - this adds atom equality
-    do we also want structural equality? how does pattern matching work otherwise?
-    you can still do tagged unions - do we also need structural pattern matching
-    for anything? (len list) can use repeated W until it doesnt reduce, same with
-    (is-some none|(some 1)).
-    it makes it harder for bailout for e.g. noun surgery if you can't say "panic
-    if we get a malformed map". technically if you virtualize with a ++mock-like
-    function then you can define crash semantics like that - we could also add
-    (S -> 0), (K -> 1) rules in W. like *(W S (x_0 ... x_n)) -> x_0, so that it
-    doesn't require virtualization
-    we need virtualization for crashes in general tho
-    i have no clue how theyre supposed to be defined
-
-    reduction is defined as reaching a fixpoint? should we have explicit *'s on the
-    right hand rules and not use fixpoint, so that we can just do
-    (E A(1) t f (K x K)) for quoting x?
+    do we actually need jet hints?
+    do we need to define "strictness" for the left side of rules? normal skew doesnt
+    define reduction order very much, and passes around unevaluated thunks whereever
+    it can due to data jets.
+    kinda feel like i should be sprinkling *'s everywhere on the right side
 ```

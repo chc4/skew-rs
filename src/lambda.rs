@@ -10,7 +10,7 @@ use Jet;
 use cons;
 use skew;
 use jets::call;
-use jets::Mul;
+use jets::{Mul, If};
 use jets::jet;
 
 #[derive(Clone, PartialEq)]
@@ -203,6 +203,15 @@ fn test_lambda_mul(){
     c.boil();
     assert_eq!(c, Twist::atom(42))
 }
+
+/* #[test]
+fn test_lambda_fac(){
+    let mut fac_1 = lambda!(fn#n.({jet(If)} 
+    println!("twist_mul: {:?}", twist_mul);
+    let mut c = skew![({twist_mul}, {A 6}, {A 7})];
+    c.boil();
+    assert_eq!(c, Twist::atom(42))
+} */
 // wow this looks terrible
 // adding B + C makes this more efficient, but not simpler
 // i dont think you need fancy-n-reduction for B + C?

@@ -149,7 +149,7 @@ impl Jetted for Mul {
 }
 
 #[derive(Clone, PartialEq)]
-struct If;
+pub struct If;
 impl Jetted for If {
     fn arity(&self) -> Int {
         3.into()
