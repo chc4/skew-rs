@@ -243,7 +243,7 @@ pub fn factorial() -> Twist {
             n.clone() * rust_factorial(n - 1)
         }
     }
-    let mut factorial = lambda!(fn#f.fn#n.({N(W)} ({N(Q)} n {Twist::atom(0)}) ({N(K)} ({Twist::atom(1)} ({Turbo(turboprop::TURBO_MUL)} n (f f ({Turbo(turboprop::TURBO_DEC)} n)))) {N(K)})));
+    let mut factorial = lambda!(fn#f.fn#n.({N(W)} ({N(Q)} n {Twist::atom(0)}) ({Twist::atom(1)} ({Turbo(turboprop::TURBO_MUL)} n (f f ({Turbo(turboprop::TURBO_DEC)} n))))));
     let factorial = factorial.transform().open();
     skew![({factorial.clone()}, {factorial})]
 }
