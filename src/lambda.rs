@@ -12,6 +12,7 @@ use skew;
 use jets::call;
 use jets::{Mul, If};
 use jets::jet;
+use turboprop;
 
 #[derive(Clone, PartialEq)]
 pub struct C;
@@ -161,6 +162,7 @@ impl<'a> Lambda<'a> {
     }
 }
 
+#[macro_export]
 macro_rules! lambda {
     (fn#$x:ident.$($bod:tt) +) => {
         box Lambda::Func(stringify!($x), lambda!($($bod)+))
@@ -168,9 +170,13 @@ macro_rules! lambda {
     ({$($x:tt)+}) => {
         box Lambda::Term(LTerm::Twist($($x)+))
     };
-
-    (($x:tt $y:tt)) => {
-        box Lambda::App(lambda!($x), lambda!($y))
+    (($x:tt $($y:tt) +)) => {
+        {
+        let x: Box<Lambda> = lambda!($x);
+        $(
+            let x = box Lambda::App(x, lambda!($y));
+        )*
+        x}
     };
     ($x:ident) => {
         box Lambda::Term(LTerm::Var(stringify!($x)))
@@ -204,14 +210,50 @@ fn test_lambda_mul(){
     assert_eq!(c, Twist::atom(42))
 }
 
-/* #[test]
-fn test_lambda_fac(){
-    let mut fac_1 = lambda!(fn#n.({jet(If)} 
-    println!("twist_mul: {:?}", twist_mul);
-    let mut c = skew![({twist_mul}, {A 6}, {A 7})];
+#[test]
+fn test_lambda_if(){
+    let mut eq_zero = lambda!(fn#n.({N(Q)} n {Twist::atom(0)}));
+    let eq_zero = eq_zero.transform().open();
+    let mut _if = lambda!(fn#c.fn#t.fn#f.({N(W)} ({eq_zero} c) (t f)));
+    let mut twist_if = _if.transform().open();
+    println!("twist_if: {:?}", twist_if);
+    let mut c = skew![({twist_if}, {A 0}, {A 4}, {A 5})];
     c.boil();
-    assert_eq!(c, Twist::atom(42))
-} */
+    assert_eq!(c, Twist::atom(4));
+    let mut c = skew![({twist_if}, {A 1}, {A 4}, {A 5})];
+    c.boil();
+    assert_eq!(c, Twist::atom(5));
+}
+
+#[test]
+fn test_recurse() {
+    let top = Twist::atom(400);
+    let mut count = lambda!(fn#f.fn#n.({N(W)} ({N(Q)} n {top.clone()}) ({N(K)} (n (f f ({N(X)} n))) {N(K)})));
+    let count = count.transform().open();
+    let mut c = skew![({count}, {count}, {A 1})];
+    c.boil();
+    assert_eq!(c, top.clone());
+}
+
+#[test]
+fn test_factorial() {
+    fn rust_factorial(n: usize) -> usize {
+        if n == 0 {
+            1
+        } else {
+            n * rust_factorial(n - 1)
+        }
+    }
+    let mut factorial = lambda!(fn#f.fn#n.({N(W)} ({N(Q)} n {Twist::atom(0)}) ({N(K)} ({Twist::atom(1)} ({Turbo(turboprop::TURBO_MUL)} n (f f ({Turbo(turboprop::TURBO_DEC)} n)))) {N(K)})));
+    let factorial = factorial.transform().open();
+    for i in 0..20 {
+        println!("Calculating factorial({})", i);
+        let mut c = skew![({factorial}, {factorial}, {Twist::atom(i)})];
+        c.boil();
+        assert_eq!(c, Twist::atom(rust_factorial(i)));
+    }
+}
+
 // wow this looks terrible
 // adding B + C makes this more efficient, but not simpler
 // i dont think you need fancy-n-reduction for B + C?

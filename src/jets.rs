@@ -36,14 +36,14 @@ impl PartialEq for dyn Jetted {
 }
 
 pub fn jet<T: Jetted + 'static>(j: T) -> Twist {
-    let mut x = vec![N(E), N(A(Rc::new(j.arity()))), N(K), J(Jet(Rc::new(j)))];
+    let mut x = vec![N(E), N(A(Rc::new(j.arity()))), J(Jet(Rc::new(j)))];
     cons(x)
 }
 
 #[inline]
 pub fn call<T: Jetted + 'static>(j: T, mut args: Twist) -> Twist {
     // just uses K for the jet hint for now
-    let mut x = vec![N(E), N(A(Rc::new(j.arity()))), N(K), J(Jet(Rc::new(j)))];
+    let mut x = vec![N(E), N(A(Rc::new(j.arity()))), J(Jet(Rc::new(j)))];
     if let Expr(mut v) = args {
         x.append(&mut (*v).clone());
     } else {
@@ -92,13 +92,6 @@ fn test_add_twice() {
     assert_eq!(t2, Twist::atom(6));
 }
 
-#[test]
-fn test_add_argument_eval() {
-    let lazy_1 = delay(delay(Twist::atom(1)));
-    let t1 = call(Add, skew![(({lazy_1}), {A 2})]).reduce().unwrap();
-    assert_eq!(t1, Twist::atom(3));
-}
-
 #[derive(Clone, PartialEq)]
 struct Add3;
 impl Jetted for Add3 {
@@ -125,7 +118,7 @@ fn test_add3(){
 
 #[test]
 fn test_add3_lazy(){
-    let lazy_1 = delay(delay(Twist::atom(1)));
+    let lazy_1 = delay(Twist::atom(1));
     let t1 = call(Add3, skew![(({lazy_1}), {A 2}, {A 3})]);
     assert_eq!(t1.reduce().unwrap(), Twist::atom(6));
 }
@@ -145,6 +138,38 @@ impl Jetted for Mul {
     }
     fn name(&self) -> String {
         "Mul".into()
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct Dec;
+impl Jetted for Dec {
+    fn arity(&self) -> Int {
+        1.into()
+    }
+    fn call(&self, args: &[Twist]) -> Option<Twist> {
+        if let [N(A(n))] = args {
+            return Some(N(A(Rc::new((**n).clone() - 1))));
+        } else {
+            return None;
+        }
+    }
+    fn name(&self) -> String {
+        "Dec".into()
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct Panic;
+impl Jetted for Panic {
+    fn arity(&self) -> Int {
+        2.into()
+    }
+    fn call(&self, args: &[Twist]) -> Option<Twist> {
+        panic!("Bailing with arguments {:?}", args);
+    }
+    fn name(&self) -> String {
+        "Panic".into()
     }
 }
 
@@ -170,6 +195,11 @@ impl Jetted for If {
     }
 }
 
+#[test]
+fn test_dec() {
+    let t1 = call(Dec, skew![{A 1}]);
+    assert_eq!(t1.reduce().unwrap(), Twist::atom(0));
+}
 #[test]
 fn test_if_true() {
     let t1 = call(If, skew![({A 0}, {A 1}, {A 2})]);

@@ -61,6 +61,18 @@ fn cons(mut exprs: Vec<Twist>) -> Twist {
     }
 }
 
+macro_rules! flip {
+    ([] $($reversed:pat)*) => {
+        [$($reversed),*]  // base case
+    };
+    ([$first:pat] $($reversed:pat)*) => { 
+        flip!([] $first $($reversed)*)  // recursion
+    };
+    ([$first:pat,$($rest:pat),*] $($reversed:pat)*) => { 
+        flip!([$($rest),*] $first $($reversed)*)  // recursion
+    };
+}
+
 #[macro_export]
 macro_rules! skew {
     (S) => { N(S) };
@@ -113,6 +125,16 @@ impl Twist {
     fn atom(n: usize) -> Self {
         N(A(Rc::new(Int::from(n))))
     }
+    /// Reduce once
+    fn cook(mut self) -> Self {
+        println!("cooking {:?}", self);
+        if let Some(next) = self.reduce() {
+            return next;
+        } else {
+            return self;
+        }
+    }
+
     /// Reduce until there's nothing left
     fn boil(&mut self) {
         let mut curr = N(K);
@@ -130,14 +152,17 @@ impl Twist {
     /// Reduce a Twist one step
     #[inline]
     fn reduce(&self) -> Option<Self> {
+        println!("reducing {:?}", self);
         if let Expr(exprs) = self {
             let o: Option<Self> = match &exprs.as_slice() {
+                [Expr(e), ..] => { panic!("unreduced head") },
                 prop @ [Turbo(_), ..] => turboprop::turboprop(prop),
                 [N(K), x, _y, z @ ..] => {
                     if z.len() > 0 {
                         let mut v = vec![x.clone()];
                         v.extend_from_slice(z);
-                        Some(cons(v))
+                        let mut v = cons(v);
+                        Some(v)
                     } else {
                         Some(x.clone())
                     }
@@ -147,13 +172,15 @@ impl Twist {
                     let mut xz = vec![x.clone(), z.clone()];
                     s.append(&mut xz);
                     let yz = vec![y.clone(), z.clone()];
-                    s.push(cons(yz));
+                    let mut yz = cons(yz);
+                    s.push(yz);
                     if(w.len() != 0){
                         s.extend_from_slice(w);
                     }
-                    Some(cons(s))
+                    let mut s = cons(s);
+                    Some(s)
                 },
-                [N(E), N(A(n)), _t, f, x @ ..] if x.len() >= **n => {
+                [N(E), N(A(n)), f, x @ ..] if x.len() >= **n => {
                     let mut arity = n;
                     let mut jetted = None;
                     println!("jet arity {}", arity);
@@ -161,7 +188,7 @@ impl Twist {
                     let new_x = &mut x.to_owned();
                     // this leads to unnecessary allocations i think
                     for item in new_x[..s].iter_mut() {
-                        item.boil();
+                        *item = item.clone().cook();
                     }
                     println!("after reduction {:?}", new_x);
                     if let J(jet) = f {
@@ -186,26 +213,52 @@ impl Twist {
                         // this actually has to be f.deoptimize()
                         let mut unjetted = vec![f.clone()];
                         unjetted.extend_from_slice(new_x);
-                        return Some(cons(unjetted));
+                        return Some(cons(unjetted).cook());
                     }
                 },
-                [N(X), N(A(n)), x @ ..] => {
-                    Some(N(A(Rc::new((**n).clone()+1))))
+                [N(X), n, x @ ..] => {
+                    let mut n = n.reduce().unwrap_or(n.clone());
+                    if let N(A(n)) = n {
+                        let n = N(A(Rc::new((*n).clone()+1)));
+                        if x.len() > 0 {
+                            panic!("wtf");
+                            let v = vec![n];
+                            v.extend_from_slice(x);
+                            return Some(cons(v))
+                        }
+                        return Some(n)
+                    }
+                    None
                 },
                 // does this work? do i need to eval for e first?
                 // do i add a `if e.len() >= n`?
-                [N(W), N(A(n)), Expr(e), x @ ..] => {
-                    let s: usize = (&**n).into();
-                    if x.len() > 0 {
-                        let mut r = vec![e[s].clone()];
-                        r.extend_from_slice(x.clone());
-                        Some(cons(r))
-                    } else {
-                        Some(e[s].clone())
+                [N(W), n, e, x @ ..] => {
+                    let mut n = n.reduce().unwrap_or(n.clone());
+                    let mut e = e.reduce().unwrap_or(e.clone());
+                    if let (N(A(n)), Expr(e)) = (n, e) {
+                        let s: usize = (&*n).into();
+                        if x.len() > 0 {
+                            let mut r = vec![e[s].clone()];
+                            r.extend_from_slice(x.clone());
+                            let mut r = cons(r);
+                            //r.boil();
+                            return Some(r)
+                        } else {
+                            let mut r = e[s].clone();
+                            //r.boil();
+                            return Some(r)
+                        }
                     }
+                    None
                 },
                 [N(Q), n, m, x @ ..] => {
                     (||{
+                        let mut n = n.reduce().unwrap_or(n.clone());
+                        let mut m = m.reduce().unwrap_or(m.clone());
+                        println!("Q {:?} {:?}", n, m);
+                        if x.len() > 0 {
+                            panic!("wtf");
+                        }
                         if let (N(A(n)), N(A(m))) = (n, m) {
                             if n == m {
                                 return Some(Twist::atom(0))

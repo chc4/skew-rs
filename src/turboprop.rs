@@ -2,6 +2,7 @@ use Twist;
 use jets;
 use jets::{Jet, Jetted};
 use lambda;
+use cons;
 
 use linkme::distributed_slice;
 use ramp::Int;
@@ -31,21 +32,42 @@ macro_rules! turboprop {
                     // XX: extract this + main's jet handling to a helper
                     let mut new_args = args.to_owned();
                     for item in new_args[..$arity].iter_mut() {
-                        item.boil();
+                        *item = item.clone().cook();
                     }
                     // XX: this actually has to call $instance.deopt() if its None
-                    $instance.call(&new_args[..$arity])
+                    let r = $instance.call(&new_args[..$arity]);
+                    if let Some(mut r) = r {
+                        if(new_args.len() > $arity) {
+                            let mut v = vec![r];
+                            v.extend_from_slice(&new_args[$arity..]);
+                            let mut v = cons(v);
+                            // XX: this shouldn't be boil, but instead a cook()
+                            // requires changing B and C to call intermediates
+                            v.boil();
+                            Some(v)
+                        } else {
+                            r.boil();
+                            Some(r)
+                        }
+                    } else {
+                        None
+                    }
                 },
                 )+
-                [Twist::Turbo(unknown), args @ ..] =>  panic!("unknown turboprop"),
-                unjetted @ _ => { panic!("unknown turboprop {:?}", unjetted); } // XX: we actually need to call the deopt reduce
+                //[Twist::Turbo(unknown), args @ ..] =>  panic!("unknown turboprop"),
+                unjetted @ _ => {
+                    println!("unknown turboprop {:?}", unjetted);
+                    None
+                } // XX: we actually need to call the deopt reduce
             }
         }
 
     }
 }
 turboprop!(
+    (1, STATIC_DEC, TURBO_DEC, jets::Dec, jets::Dec),
     (2, STATIC_ADD, TURBO_ADD, jets::Add, jets::Add),
+    (2, STATIC_MUL, TURBO_MUL, jets::Mul, jets::Mul),
     (3, STATIC_C, TURBO_C, lambda::C, lambda::C),
     (3, STATIC_B, TURBO_B, lambda::B, lambda::B)
 );

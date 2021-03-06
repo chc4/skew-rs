@@ -5,7 +5,7 @@ probably gonna be called SKEIN or something? idk
     *(x y z)                  -> *((*x *y) z) # ????
     *(K x y)                  -> x
     *(S x y z)                -> *(x z (y z))
-    *(E A(n) t f x_0 ... x_n) -> *(f *x_0 … *x_n)
+    *(E A(n) f x_0 ... x_n) -> *(f *x_0 … *x_n)
     *(W A(i) (x_0 ... x_n))   -> *x_i
     *(W x y)                  -> ! # crash semantics (do we want this?)
     *(X A(n))                 -> A(n+1)
