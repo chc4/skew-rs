@@ -56,7 +56,7 @@ macro_rules! turboprop {
                 )+
                 //[Twist::Turbo(unknown), args @ ..] =>  panic!("unknown turboprop"),
                 unjetted @ _ => {
-                    println!("unknown turboprop {:?}", unjetted);
+                    //println!("unknown turboprop {:?}", unjetted);
                     None
                 } // XX: we actually need to call the deopt reduce
             }

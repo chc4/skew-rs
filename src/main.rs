@@ -127,7 +127,7 @@ impl Twist {
     }
     /// Reduce once
     fn cook(mut self) -> Self {
-        println!("cooking {:?}", self);
+        //println!("cooking {:?}", self);
         if let Some(next) = self.reduce() {
             return next;
         } else {
@@ -140,7 +140,7 @@ impl Twist {
         let mut curr = N(K);
         mem::swap(&mut curr, self);
         loop {
-            println!("boiling {:?}", curr);
+            //println!("boiling {:?}", curr);
             if let Some(next) = curr.reduce() {
                 curr = next;
             } else {
@@ -152,7 +152,7 @@ impl Twist {
     /// Reduce a Twist one step
     #[inline]
     fn reduce(&self) -> Option<Self> {
-        println!("reducing {:?}", self);
+        //println!("reducing {:?}", self);
         if let Expr(exprs) = self {
             let o: Option<Self> = match &exprs.as_slice() {
                 [Expr(e), ..] => { panic!("unreduced head") },
@@ -255,7 +255,6 @@ impl Twist {
                     (||{
                         let mut n = n.reduce().unwrap_or(n.clone());
                         let mut m = m.reduce().unwrap_or(m.clone());
-                        println!("Q {:?} {:?}", n, m);
                         if x.len() > 0 {
                             panic!("wtf");
                         }
@@ -325,24 +324,10 @@ mod lambda;
 use lambda::*;
 use lambda::{Lambda, LTerm};
 fn main() {
-    let mut lam = Lambda::Func("x", box Lambda::Term(LTerm::Var("x")));
-    assert_eq!(lam.transform().open(), skew![(S, K, K)]);
-
-    let mut swap = Lambda::Func("x", box Lambda::Func("y",
-        box Lambda::App(
-            box Lambda::Term(LTerm::Var("y")),
-            box Lambda::Term(LTerm::Var("x"))
-        )
-    ));
-
-    println!("before: {:?}", swap);
-    let twist_swap = swap.transform().open();
-    println!("after: {:?}", twist_swap);
-
-    let mut test_swap = skew![({twist_swap}, {A 1}, {A 2})];
-    println!("test swap: {:?}", test_swap);
-    test_swap.boil();
-    assert_eq!(test_swap, skew![({A 2}, {A 1})]);
+    let n = Twist::atom(200);
+    let mut test_fac = skew![({lambda::factorial()}, {n.clone()})];
+    test_fac.boil();
+    println!("twist factorial({:?}) = {:?}", n.clone(), test_fac);
 }
 
 mod test {

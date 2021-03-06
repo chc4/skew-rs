@@ -83,10 +83,10 @@ impl<'a> Lambda<'a> {
     }
 
     pub fn transform(&mut self) -> Lambda<'a> {
-        println!("reducing {:?}", self);
+        //println!("reducing {:?}", self);
         match self.clone() {
             Lambda::App(mut m, mut n) => {
-                println!("2");
+                //println!("2");
                 Lambda::App(
                     box m.transform(),
                     box n.transform()
@@ -94,19 +94,19 @@ impl<'a> Lambda<'a> {
             },
             Lambda::Func(x, mut body) => match *body.clone() {
                 mut y @ _ if !body.free(x) => {
-                    println!("3");
+                    //println!("3");
                     Lambda::App(box Lambda::Term(LTerm::Twist(Twist::N(Skew::K))), box y.transform())
                 },
                 Lambda::Term(LTerm::Var(x2)) if x == x2 => {
-                    println!("4");
+                    //println!("4");
                     Lambda::Term(LTerm::Twist(skew![(S, K, K)]))
                 },
                 Lambda::Func(y, body2) if body2.free(x) => {
-                    println!("5");
+                    //println!("5");
                     Lambda::Func(x, box body.transform()).transform()
                 }
                 Lambda::App(mut e, box Lambda::Term(LTerm::Var(y))) if !e.free(x) => {
-                    println!("fancy n");
+                    //println!("fancy n");
                     e.transform()
                 },
                 Lambda::App(mut m, mut n) => {
@@ -115,7 +115,7 @@ impl<'a> Lambda<'a> {
                     use turboprop;
                     match (m.free(x), n.free(x)) {
                         (true, true) => {
-                            println!("6");
+                            //println!("6");
                             Lambda::App(
                                 box Lambda::App(
                                     box Lambda::Term(LTerm::Twist(Twist::N(Skew::S))),
@@ -125,7 +125,7 @@ impl<'a> Lambda<'a> {
                             )
                         },
                         (true, false) => {
-                            println!("C");
+                            //println!("C");
                             Lambda::App(
                                 box Lambda::App(
                                     box Lambda::Term(LTerm::Twist(Twist::Turbo(turboprop::TURBO_C))),
@@ -135,7 +135,7 @@ impl<'a> Lambda<'a> {
                             )
                         },
                         (false, true) => {
-                            println!("B");
+                            //println!("B");
                             Lambda::App(
                                 box Lambda::App(
                                     box Lambda::Term(LTerm::Twist(Twist::Turbo(turboprop::TURBO_B))),
@@ -149,7 +149,7 @@ impl<'a> Lambda<'a> {
                 },
                 x @ _ => x
             },
-            x @ _ => { println!("1"); x },
+            x @ _ => { /*println!("1");*/ x },
         }
     }
 
@@ -235,8 +235,7 @@ fn test_recurse() {
     assert_eq!(c, top.clone());
 }
 
-#[test]
-fn test_factorial() {
+pub fn factorial() -> Twist {
     fn rust_factorial(n: Int) -> Int {
         if n == 0 {
             1.into()
@@ -246,9 +245,22 @@ fn test_factorial() {
     }
     let mut factorial = lambda!(fn#f.fn#n.({N(W)} ({N(Q)} n {Twist::atom(0)}) ({N(K)} ({Twist::atom(1)} ({Turbo(turboprop::TURBO_MUL)} n (f f ({Turbo(turboprop::TURBO_DEC)} n)))) {N(K)})));
     let factorial = factorial.transform().open();
+    skew![({factorial.clone()}, {factorial})]
+}
+
+#[test]
+fn test_factorial(){
+    fn rust_factorial(n: Int) -> Int {
+        if n == 0 {
+            1.into()
+        } else {
+            n.clone() * rust_factorial(n - 1)
+        }
+    }
+    let _f = factorial();
     for i in 0..40 {
         println!("Calculating factorial({})", i);
-        let mut c = skew![({factorial}, {factorial}, {Twist::atom(i)})];
+        let mut c = skew![({_f.clone()}, {Twist::atom(i)})];
         c.boil();
         assert_eq!(c, N(A(Rc::new(rust_factorial(i.into())))));
     }
