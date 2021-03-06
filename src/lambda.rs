@@ -237,20 +237,20 @@ fn test_recurse() {
 
 #[test]
 fn test_factorial() {
-    fn rust_factorial(n: usize) -> usize {
+    fn rust_factorial(n: Int) -> Int {
         if n == 0 {
-            1
+            1.into()
         } else {
-            n * rust_factorial(n - 1)
+            n.clone() * rust_factorial(n - 1)
         }
     }
     let mut factorial = lambda!(fn#f.fn#n.({N(W)} ({N(Q)} n {Twist::atom(0)}) ({N(K)} ({Twist::atom(1)} ({Turbo(turboprop::TURBO_MUL)} n (f f ({Turbo(turboprop::TURBO_DEC)} n)))) {N(K)})));
     let factorial = factorial.transform().open();
-    for i in 0..20 {
+    for i in 0..40 {
         println!("Calculating factorial({})", i);
         let mut c = skew![({factorial}, {factorial}, {Twist::atom(i)})];
         c.boil();
-        assert_eq!(c, Twist::atom(rust_factorial(i)));
+        assert_eq!(c, N(A(Rc::new(rust_factorial(i.into())))));
     }
 }
 
